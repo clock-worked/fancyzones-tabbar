@@ -188,5 +188,5 @@ void FancyZonesApp::HandleWinHookEvent(WinHookEvent* data) noexcept
 
 intptr_t FancyZonesApp::HandleKeyboardHookEvent(LowlevelKeyboardEvent* data) noexcept
 {
-    return m_app.as<IFancyZonesCallback>()->OnKeyDown(data->lParam);
+    return m_app.as<IFancyZonesCallback>()->OnKeyDownOrUp(data->lParam);
 }

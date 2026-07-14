@@ -36,7 +36,7 @@
     </ClCompile>
     <Link>
       <AdditionalLibraryDirectories>$(VCInstallDir)UnitTest\lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
-      <AdditionalDependencies>gdiplus.lib;dwmapi.lib;shlwapi.lib;uxtheme.lib;shcore.lib;wbemuuid.lib;comsuppw.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>dcomp.lib;gdiplus.lib;dwmapi.lib;shlwapi.lib;uxtheme.lib;shcore.lib;wbemuuid.lib;comsuppw.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>

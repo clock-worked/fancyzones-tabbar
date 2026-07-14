@@ -70,7 +70,7 @@ struct FancyZones : public winrt::implements<FancyZones, IFancyZones, IFancyZone
 {
 public:
     FancyZones(HINSTANCE hinstance, std::function<void()> disableModuleCallbackFunction) noexcept :
-        SettingsObserver({ SettingId::EditorHotkey, SettingId::WindowSwitching, SettingId::PrevTabHotkey, SettingId::NextTabHotkey, SettingId::SpanZonesAcrossMonitors }),
+        SettingsObserver({ SettingId::EditorHotkey, SettingId::WindowSwitching, SettingId::PrevTabHotkey, SettingId::NextTabHotkey, SettingId::SpanZonesAcrossMonitors, SettingId::ZoneTitleBarStyle }),
         m_hinstance(hinstance),
         m_draggingState([this]() {
             PostMessageW(m_window, WM_PRIV_LOCATIONCHANGE, NULL, NULL);
@@ -124,6 +124,7 @@ public:
         case EVENT_OBJECT_UNCLOAKED:
         case EVENT_OBJECT_SHOW:
         case EVENT_OBJECT_CREATE:
+        case EVENT_SYSTEM_MINIMIZEEND:
             if (data->idObject == OBJID_WINDOW)
             {
                 PostMessageW(m_window, WM_PRIV_WINDOWCREATED, wparam, lparam);
@@ -131,6 +132,7 @@ public:
             break;
 
         case EVENT_OBJECT_DESTROY:
+        case EVENT_SYSTEM_MINIMIZESTART:
             if (data->idObject == OBJID_WINDOW)
             {
                 PostMessageW(m_window, WM_PRIV_WINDOWDESTROYED, wparam, lparam);
@@ -142,7 +144,7 @@ public:
     IFACEMETHODIMP_(void)
     VirtualDesktopChanged() noexcept;
     IFACEMETHODIMP_(bool)
-    OnKeyDown(PKBDLLHOOKSTRUCT info) noexcept;
+    OnKeyDownOrUp(PKBDLLHOOKSTRUCT info) noexcept;
 
     void MoveSizeStart(HWND window, HMONITOR monitor);
     void MoveSizeUpdate(HMONITOR monitor, POINT const& ptScreen);
@@ -480,7 +482,7 @@ void FancyZones::WindowCreated(HWND window) noexcept
 
 // IFancyZonesCallback
 IFACEMETHODIMP_(bool)
-FancyZones::OnKeyDown(PKBDLLHOOKSTRUCT info) noexcept
+FancyZones::OnKeyDownOrUp(PKBDLLHOOKSTRUCT info) noexcept
 {
     // Return true to swallow the keyboard event
     bool const shift = GetAsyncKeyState(VK_SHIFT) & 0x8000;
@@ -493,7 +495,7 @@ FancyZones::OnKeyDown(PKBDLLHOOKSTRUCT info) noexcept
         {
             if (ShouldProcessSnapHotkey(info->vkCode))
             {
-                Trace::FancyZones::OnKeyDown(info->vkCode, win, ctrl, false /*inMoveSize*/);
+                Trace::FancyZones::OnKeyDownOrUp(info->vkCode, win, ctrl, false /*inMoveSize*/);
                 // Win+Left, Win+Right will cycle through Zones in the active ZoneSet when WM_PRIV_SNAP_HOTKEY's handled
                 PostMessageW(m_window, WM_PRIV_SNAP_HOTKEY, 0, info->vkCode);
                 return true;
@@ -1109,6 +1111,11 @@ void FancyZones::SettingsUpdate(SettingId id)
         MoveSizeEnd();
         m_workAreaConfiguration.Clear();
         PostMessageW(m_window, WM_PRIV_INIT, NULL, NULL);
+    }
+    break;
+    case SettingId::ZoneTitleBarStyle:
+    {
+        RefreshLayouts();
     }
     break;
     default:

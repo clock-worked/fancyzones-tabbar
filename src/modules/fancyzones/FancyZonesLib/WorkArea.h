@@ -2,6 +2,7 @@
 
 #include <FancyZonesLib/Layout.h>
 #include <FancyZonesLib/LayoutAssignedWindows.h>
+#include <FancyZonesLib/ZoneTitleBar.h>
 
 class ZonesOverlay;
 
@@ -62,6 +63,7 @@ protected:
 private:
     bool InitWindow(HINSTANCE hinstance);
     void InitLayout(const FancyZonesDataTypes::WorkAreaId& parentUniqueId);
+    void UpdateZoneTitleBars();
     
     void CalculateZoneSet();
     void SetWorkAreaWindowAsTopmost(HWND draggedWindow) noexcept;
@@ -70,8 +72,10 @@ private:
     
     const FancyZonesUtils::Rect m_workAreaRect{};
     const FancyZonesDataTypes::WorkAreaId m_uniqueId;
+    const HINSTANCE m_hinstance{};
     HWND m_window{}; // Hidden tool window used to represent current monitor desktop work area.
     std::unique_ptr<Layout> m_layout;
     LayoutAssignedWindows m_layoutWindows{};
+    std::map<ZoneIndexSet, std::unique_ptr<IZoneTitleBar>> m_zoneTitleBars{};
     std::unique_ptr<ZonesOverlay> m_zonesOverlay;
 };

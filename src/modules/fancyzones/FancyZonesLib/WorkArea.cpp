@@ -102,6 +102,7 @@ namespace
 
 WorkArea::WorkArea(HINSTANCE hinstance, const FancyZonesDataTypes::WorkAreaId& uniqueId, const FancyZonesUtils::Rect& workAreaRect) :
     m_uniqueId(uniqueId),
+    m_hinstance(hinstance),
     m_workAreaRect(workAreaRect)
 {
     WNDCLASSEXW wcex{};
@@ -149,7 +150,9 @@ bool WorkArea::Snap(HWND window, const ZoneIndexSet& zones, bool updatePosition)
         FancyZonesWindowUtils::SizeWindowToRect(window, adjustedRect);
     }
 
-    return FancyZonesWindowProperties::StampZoneIndexProperty(window, zones);
+    const bool stamped = FancyZonesWindowProperties::StampZoneIndexProperty(window, zones);
+    UpdateZoneTitleBars();
+    return stamped;
 }
 
 bool WorkArea::Unsnap(HWND window)
@@ -162,6 +165,7 @@ bool WorkArea::Unsnap(HWND window)
     m_layoutWindows.Dismiss(window);
     AppZoneHistory::instance().RemoveAppLastZone(window, m_uniqueId, m_layout->Id());
     FancyZonesWindowProperties::RemoveZoneIndexProperty(window);
+    UpdateZoneTitleBars();
 
     return true;
 }
@@ -212,6 +216,8 @@ void WorkArea::InitLayout()
     {
         m_zonesOverlay->DrawActiveZoneSet(m_layout->Zones(), {}, Colors::GetZoneColors(), FancyZonesSettings::settings().showZoneNumber);
     }
+
+    UpdateZoneTitleBars();
 }
 
 void WorkArea::UpdateWindowPositions()
@@ -226,6 +232,48 @@ void WorkArea::UpdateWindowPositions()
 void WorkArea::CycleWindows(HWND window, bool reverse)
 {
     m_layoutWindows.CycleWindows(window, reverse);
+    UpdateZoneTitleBars();
+}
+
+void WorkArea::UpdateZoneTitleBars()
+{
+    if (!m_layout)
+    {
+        m_zoneTitleBars.clear();
+        return;
+    }
+
+    const auto& windowsByIndexSets = m_layoutWindows.WindowsByIndexSets();
+
+    for (auto it = m_zoneTitleBars.begin(); it != m_zoneTitleBars.end();)
+    {
+        if (!windowsByIndexSets.contains(it->first))
+        {
+            it = m_zoneTitleBars.erase(it);
+        }
+        else
+        {
+            ++it;
+        }
+    }
+
+    for (const auto& [indexSet, windows] : windowsByIndexSets)
+    {
+        if (windows.empty())
+        {
+            m_zoneTitleBars.erase(indexSet);
+            continue;
+        }
+
+        const RECT zoneRect = m_layout->GetCombinedZonesRect(indexSet);
+        const auto zoneRectFz = FancyZonesUtils::Rect(zoneRect);
+        const UINT dpi = GetDpiForWindow(windows.front());
+
+        auto style = FancyZonesSettings::settings().zoneTitleBarStyle;
+        auto newTitleBar = MakeZoneTitleBar(style, m_hinstance, zoneRectFz, dpi);
+        newTitleBar->UpdateZoneWindows(windows);
+        m_zoneTitleBars[indexSet] = std::move(newTitleBar);
+    }
 }
 
 #pragma region private

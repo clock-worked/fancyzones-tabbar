@@ -35,6 +35,8 @@ namespace NonLocalizable
     const wchar_t MakeDraggedWindowTransparentID[] = L"fancyzones_makeDraggedWindowTransparent";
     const wchar_t AllowChildWindowSnapID[] = L"fancyzones_allowChildWindowSnap";
     const wchar_t DisableRoundCornersOnSnapping[] = L"fancyzones_disableRoundCornersOnSnap";
+    const wchar_t ZoneTitleBarStyleID[] = L"fancyzones_zoneTitleBarStyle";
+    const wchar_t ZoneTitleBarAutoHideID[] = L"fancyzones_zoneTitleBarAutoHide";
 
     const wchar_t SystemThemeID[] = L"fancyzones_systemTheme";
     const wchar_t ZoneColorID[] = L"fancyzones_zoneColor";
@@ -243,6 +245,29 @@ void FancyZonesSettings::LoadSettings()
                 {
                     m_settings.overlappingZonesAlgorithm = algorithm;
                     NotifyObservers(SettingId::OverlappingZonesAlgorithm);
+                }
+            }
+        }
+
+        // Zone title bar style + auto-hide are stored separately in settings UI
+        // and merged into the FancyZones runtime style enum.
+        {
+            const bool zoneTitleBarAutoHide = values.get_bool_value(NonLocalizable::ZoneTitleBarAutoHideID).value_or(false);
+            const int zoneTitleBarStyle = values.get_int_value(NonLocalizable::ZoneTitleBarStyleID).value_or(static_cast<int>(ZoneTitleBarStyle::Labels));
+            const bool validStyle = zoneTitleBarStyle >= 0 && zoneTitleBarStyle < static_cast<int>(ZoneTitleBarStyle::EnumElements);
+
+            if (validStyle)
+            {
+                auto style = static_cast<ZoneTitleBarStyle>(zoneTitleBarStyle);
+                if (zoneTitleBarAutoHide && style != ZoneTitleBarStyle::None)
+                {
+                    style = static_cast<ZoneTitleBarStyle>(zoneTitleBarStyle | static_cast<int>(ZoneTitleBarStyle::AutoHide));
+                }
+
+                if (m_settings.zoneTitleBarStyle != style)
+                {
+                    m_settings.zoneTitleBarStyle = style;
+                    NotifyObservers(SettingId::ZoneTitleBarStyle);
                 }
             }
         }
