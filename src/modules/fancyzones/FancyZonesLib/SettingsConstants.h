@@ -36,4 +36,5 @@ enum class SettingId
     ExcludedApps,
     AllowSnapChildWindows,
     DisableRoundCornersOnSnapping,
+    ZoneTitleBarStyle,
 };

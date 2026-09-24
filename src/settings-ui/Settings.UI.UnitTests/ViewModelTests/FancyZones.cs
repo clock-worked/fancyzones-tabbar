@@ -157,6 +157,80 @@ namespace ViewModelTests
         }
 
         [TestMethod]
+        public void TabBarFocusColorShouldSetValueWhenSuccessful()
+        {
+            Mock<SettingsUtils> mockSettingsUtils = new Mock<SettingsUtils>(new FileSystem(), null);
+
+            FancyZonesViewModel viewModel = new FancyZonesViewModel(mockSettingsUtils.Object, SettingsRepository<GeneralSettings>.GetInstance(mockGeneralSettingsUtils.Object), SettingsRepository<FancyZonesSettings>.GetInstance(mockFancyZonesSettingsUtils.Object), sendMockIPCConfigMSG, FancyZonesTestFolderName);
+            Assert.AreEqual(ConfigDefaults.DefaultFancyZonesTabBarFocusColor, viewModel.TabBarFocusColor);
+
+            viewModel.TabBarFocusColor = "#ff0000";
+
+            var expected = viewModel.TabBarFocusColor;
+            var actual = SettingsRepository<FancyZonesSettings>.GetInstance(mockFancyZonesSettingsUtils.Object).SettingsConfig.Properties.FancyzonesTabBarFocusColor.Value;
+            Assert.AreEqual(expected, actual);
+        }
+
+        [TestMethod]
+        public void TabBarUnfocusedColorShouldSetValueWhenSuccessful()
+        {
+            Mock<SettingsUtils> mockSettingsUtils = new Mock<SettingsUtils>(new FileSystem(), null);
+
+            FancyZonesViewModel viewModel = new FancyZonesViewModel(mockSettingsUtils.Object, SettingsRepository<GeneralSettings>.GetInstance(mockGeneralSettingsUtils.Object), SettingsRepository<FancyZonesSettings>.GetInstance(mockFancyZonesSettingsUtils.Object), sendMockIPCConfigMSG, FancyZonesTestFolderName);
+            Assert.AreEqual(ConfigDefaults.DefaultFancyZonesTabBarUnfocusedColor, viewModel.TabBarUnfocusedColor);
+
+            viewModel.TabBarUnfocusedColor = "#123456";
+
+            var expected = viewModel.TabBarUnfocusedColor;
+            var actual = SettingsRepository<FancyZonesSettings>.GetInstance(mockFancyZonesSettingsUtils.Object).SettingsConfig.Properties.FancyzonesTabBarUnfocusedColor.Value;
+            Assert.AreEqual(expected, actual);
+        }
+
+        [TestMethod]
+        public void TabBarTextColorsShouldSetValuesWhenSuccessful()
+        {
+            Mock<SettingsUtils> mockSettingsUtils = new Mock<SettingsUtils>(new FileSystem(), null);
+
+            FancyZonesViewModel viewModel = new FancyZonesViewModel(mockSettingsUtils.Object, SettingsRepository<GeneralSettings>.GetInstance(mockGeneralSettingsUtils.Object), SettingsRepository<FancyZonesSettings>.GetInstance(mockFancyZonesSettingsUtils.Object), sendMockIPCConfigMSG, FancyZonesTestFolderName);
+            Assert.AreEqual(ConfigDefaults.DefaultFancyZonesTabBarFocusedTextColor, viewModel.TabBarFocusedTextColor);
+            Assert.AreEqual(ConfigDefaults.DefaultFancyZonesTabBarUnfocusedTextColor, viewModel.TabBarUnfocusedTextColor);
+
+            viewModel.TabBarFocusedTextColor = "#123456";
+            viewModel.TabBarUnfocusedTextColor = "#abcdef";
+
+            Assert.AreEqual(viewModel.TabBarFocusedTextColor, SettingsRepository<FancyZonesSettings>.GetInstance(mockFancyZonesSettingsUtils.Object).SettingsConfig.Properties.FancyzonesTabBarFocusedTextColor.Value);
+            Assert.AreEqual(viewModel.TabBarUnfocusedTextColor, SettingsRepository<FancyZonesSettings>.GetInstance(mockFancyZonesSettingsUtils.Object).SettingsConfig.Properties.FancyzonesTabBarUnfocusedTextColor.Value);
+        }
+
+        [TestMethod]
+        public void TabBarHeightShouldSetValueWhenSuccessful()
+        {
+            Mock<SettingsUtils> mockSettingsUtils = new Mock<SettingsUtils>(new FileSystem(), null);
+
+            FancyZonesViewModel viewModel = new FancyZonesViewModel(mockSettingsUtils.Object, SettingsRepository<GeneralSettings>.GetInstance(mockGeneralSettingsUtils.Object), SettingsRepository<FancyZonesSettings>.GetInstance(mockFancyZonesSettingsUtils.Object), sendMockIPCConfigMSG, FancyZonesTestFolderName);
+
+            viewModel.TabBarHeight = 48;
+
+            var expected = viewModel.TabBarHeight;
+            var actual = SettingsRepository<FancyZonesSettings>.GetInstance(mockFancyZonesSettingsUtils.Object).SettingsConfig.Properties.FancyzonesTabBarHeight.Value;
+            Assert.AreEqual(expected, actual);
+        }
+
+        [TestMethod]
+        public void TabBarCloseButtonBackgroundShapeShouldSetValueWhenSuccessful()
+        {
+            Mock<SettingsUtils> mockSettingsUtils = new Mock<SettingsUtils>(new FileSystem(), null);
+
+            FancyZonesViewModel viewModel = new FancyZonesViewModel(mockSettingsUtils.Object, SettingsRepository<GeneralSettings>.GetInstance(mockGeneralSettingsUtils.Object), SettingsRepository<FancyZonesSettings>.GetInstance(mockFancyZonesSettingsUtils.Object), sendMockIPCConfigMSG, FancyZonesTestFolderName);
+
+            viewModel.TabBarCloseButtonBackgroundShape = 2;
+
+            var expected = viewModel.TabBarCloseButtonBackgroundShape;
+            var actual = SettingsRepository<FancyZonesSettings>.GetInstance(mockFancyZonesSettingsUtils.Object).SettingsConfig.Properties.FancyzonesTabBarCloseButtonBackgroundShape.Value;
+            Assert.AreEqual(expected, actual);
+        }
+
+        [TestMethod]
         public void OverrideSnapHotkeysShouldSetValue2TrueWhenSuccessful()
         {
             Mock<SettingsUtils> mockSettingsUtils = new Mock<SettingsUtils>(new FileSystem(), null);

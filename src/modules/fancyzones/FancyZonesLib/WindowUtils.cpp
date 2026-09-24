@@ -361,7 +361,7 @@ void FancyZonesWindowUtils::RestoreWindowOrigin(HWND window) noexcept
     }
 }
 
-RECT FancyZonesWindowUtils::AdjustRectForSizeWindowToRect(HWND window, RECT rect, HWND windowOfRect) noexcept
+RECT FancyZonesWindowUtils::AdjustRectForSizeWindowToRect(HWND window, RECT rect, HWND windowOfRect, bool rectAlreadyInScreenCoordinates) noexcept
 {
     RECT newWindowRect = rect;
 
@@ -392,7 +392,7 @@ RECT FancyZonesWindowUtils::AdjustRectForSizeWindowToRect(HWND window, RECT rect
     }
 
     // Convert to screen coordinates
-    if (windowOfRect)
+    if (windowOfRect && !rectAlreadyInScreenCoordinates)
     {
         MapWindowRect(windowOfRect, nullptr, &newWindowRect);
     }

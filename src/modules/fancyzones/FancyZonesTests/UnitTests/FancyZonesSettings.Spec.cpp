@@ -44,6 +44,11 @@ namespace FancyZonesUnitTests
         Assert::AreEqual(expected.makeDraggedWindowTransparent, actual.makeDraggedWindowTransparent);
         Assert::AreEqual(expected.windowSwitching, actual.windowSwitching);
         Assert::AreEqual(expected.monitorRotation, actual.monitorRotation);
+        Assert::AreEqual(static_cast<int>(expected.zoneTitleBarStyle), static_cast<int>(actual.zoneTitleBarStyle));
+        Assert::AreEqual(expected.tabBarFillZoneWidth, actual.tabBarFillZoneWidth);
+        Assert::AreEqual(expected.tabBarTabWidth, actual.tabBarTabWidth);
+        Assert::AreEqual(expected.tabBarTextSize, actual.tabBarTextSize);
+        Assert::AreEqual(expected.tabBarIconSize, actual.tabBarIconSize);
         Assert::AreEqual(expected.zoneColor.c_str(), actual.zoneColor.c_str());
         Assert::AreEqual(expected.zoneBorderColor.c_str(), actual.zoneBorderColor.c_str());
         Assert::AreEqual(expected.zoneHighlightColor.c_str(), actual.zoneHighlightColor.c_str());
@@ -95,6 +100,12 @@ namespace FancyZonesUnitTests
             values.add_property(L"fancyzones_monitorRotation", m_defaultSettings.monitorRotation);
             values.add_property(L"fancyzones_monitorRotation_hotkey", m_defaultSettings.monitorRotationHotkey.get_json());
             values.add_property(L"fancyzones_excluded_apps", m_defaultSettings.excludedApps);
+            values.add_property(L"fancyzones_zoneTitleBarStyle", static_cast<int>(m_defaultSettings.zoneTitleBarStyle));
+            values.add_property(L"fancyzones_zoneTitleBarAutoHide", false);
+            values.add_property(L"fancyzones_tabBarFillZoneWidth", m_defaultSettings.tabBarFillZoneWidth);
+            values.add_property(L"fancyzones_tabBarTabWidth", m_defaultSettings.tabBarTabWidth);
+            values.add_property(L"fancyzones_tabBarTextSize", m_defaultSettings.tabBarTextSize);
+            values.add_property(L"fancyzones_tabBarIconSize", m_defaultSettings.tabBarIconSize);
 
             json::to_file(FancyZonesSettings::GetSettingsFileName(), values.get_raw_json());
             FancyZonesSettings::instance().LoadSettings();
@@ -109,6 +120,11 @@ namespace FancyZonesUnitTests
         {
             //prepare data
             const Settings expected{
+                .zoneTitleBarStyle = ZoneTitleBarStyle::AutoHideTabs,
+                .tabBarFillZoneWidth = false,
+                .tabBarTabWidth = 240,
+                .tabBarTextSize = 18,
+                .tabBarIconSize = 20,
                 .excludedApps = L"app\r\napp1\r\napp2\r\nanother app",
                 .excludedAppsArray = { L"APP", L"APP1", L"APP2", L"ANOTHER APP" },
             };
@@ -140,6 +156,12 @@ namespace FancyZonesUnitTests
             values.add_property(L"fancyzones_monitorRotation", expected.monitorRotation);
             values.add_property(L"fancyzones_monitorRotation_hotkey", expected.monitorRotationHotkey.get_json());
             values.add_property(L"fancyzones_excluded_apps", expected.excludedApps);
+            values.add_property(L"fancyzones_zoneTitleBarStyle", static_cast<int>(ZoneTitleBarStyle::Tabs));
+            values.add_property(L"fancyzones_zoneTitleBarAutoHide", true);
+            values.add_property(L"fancyzones_tabBarFillZoneWidth", expected.tabBarFillZoneWidth);
+            values.add_property(L"fancyzones_tabBarTabWidth", expected.tabBarTabWidth);
+            values.add_property(L"fancyzones_tabBarTextSize", expected.tabBarTextSize);
+            values.add_property(L"fancyzones_tabBarIconSize", expected.tabBarIconSize);
 
             json::to_file(FancyZonesSettings::GetSettingsFileName(), values.get_raw_json());
             

@@ -3,7 +3,7 @@
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
   <Import Project="$(RepoRoot)packages\Microsoft.Windows.CppWinRT.2.0.250303.1\build\native\Microsoft.Windows.CppWinRT.props" Condition="Exists('$(RepoRoot)packages\Microsoft.Windows.CppWinRT.2.0.250303.1\build\native\Microsoft.Windows.CppWinRT.props')" />
   <Target Name="GenerateResourceFiles" BeforeTargets="PrepareForBuild">
-    <Exec LogStandardErrorAsError="false" Command="powershell -NonInteractive -executionpolicy Unrestricted -NoProfile $(RepoRoot)tools\build\convert-resx-to-rc.ps1 $(MSBuildThisFileDirectory) resource.base.h resource.h fancyzones.base.rc fancyzones.rc" />
+    <Exec Command="powershell -NonInteractive -executionpolicy Unrestricted $(RepoRoot)tools\build\convert-resx-to-rc.ps1 $(MSBuildThisFileDirectory) resource.base.h resource.h fancyzones.base.rc fancyzones.rc" />
   </Target>
   <PropertyGroup Label="Globals">
     <VCProjectVersion>16.0</VCProjectVersion>
@@ -40,6 +40,8 @@
     <ClInclude Include="FancyZonesData\CustomLayouts.h" />
     <ClInclude Include="FancyZonesData\AppliedLayouts.h" />
     <ClInclude Include="FancyZonesData\AppZoneHistory.h" />
+    <ClInclude Include="CompositionDrawing.h" />
+    <ClInclude Include="Drawing.h" />
     <ClInclude Include="FancyZones.h" />
     <ClInclude Include="FancyZonesDataTypes.h" />
     <ClInclude Include="FancyZonesData\DefaultLayouts.h" />
@@ -72,6 +74,7 @@
     <ClInclude Include="trace.h" />
     <ClInclude Include="util.h" />
     <ClInclude Include="VirtualDesktop.h" />
+    <ClInclude Include="Window.h" />
     <ClInclude Include="WindowKeyboardSnap.h" />
     <ClInclude Include="WindowMouseSnap.h" />
     <ClInclude Include="FancyZonesWindowProperties.h" />
@@ -82,9 +85,12 @@
     <ClInclude Include="ZoneIndexSetBitmask.h" />
     <ClInclude Include="WorkArea.h" />
     <ClInclude Include="ZonesOverlay.h" />
+    <ClInclude Include="ZoneTitleBar.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="Colors.cpp" />
+    <ClCompile Include="CompositionDrawing.cpp" />
+    <ClCompile Include="Drawing.cpp" />
     <ClCompile Include="DraggingState.cpp" />
     <ClCompile Include="EditorParameters.cpp" />
     <ClCompile Include="FancyZonesData\AppZoneHistory.cpp">
@@ -130,6 +136,7 @@
     <ClCompile Include="trace.cpp" />
     <ClCompile Include="util.cpp" />
     <ClCompile Include="VirtualDesktop.cpp" />
+    <ClCompile Include="Window.cpp" />
     <ClCompile Include="WindowKeyboardSnap.cpp" />
     <ClCompile Include="WindowMouseSnap.cpp" />
     <ClCompile Include="WindowUtils.cpp" />
@@ -137,6 +144,7 @@
     <ClCompile Include="WorkArea.cpp" />
     <ClCompile Include="HighlightedZones.cpp" />
     <ClCompile Include="ZonesOverlay.cpp" />
+    <ClCompile Include="ZoneTitleBar.cpp" />
   </ItemGroup>
   <ItemGroup>
     <None Include="fancyzones.base.rc" />
@@ -145,6 +153,9 @@
     </ProjectReference>
     <ProjectReference Include="$(RepoRoot)src\common\notifications\notifications.vcxproj">
       <Project>{1d5be09d-78c0-4fd7-af00-ae7c1af7c525}</Project>
+    </ProjectReference>
+    <ProjectReference Include="..\..\..\common\Themes\Themes.vcxproj">
+      <Project>{98537082-0fdb-40de-abd8-0dc5a4269bab}</Project>
     </ProjectReference>
     <ResourceCompile Include="Generated Files/fancyzones.rc" />
     <None Include="packages.config" />

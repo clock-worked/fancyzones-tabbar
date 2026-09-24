@@ -12,6 +12,7 @@ public :
     void Dismiss(HWND window);
 
     std::map<HWND, ZoneIndexSet> SnappedWindows() const noexcept;
+    const std::map<ZoneIndexSet, std::vector<HWND>>& WindowsByIndexSets() const noexcept { return m_windowsByIndexSets; }
     ZoneIndexSet GetZoneIndexSetFromWindow(HWND window) const noexcept;
     bool IsZoneEmpty(ZoneIndex zoneIndex) const noexcept;
     

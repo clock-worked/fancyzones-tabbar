@@ -1,0 +1,501 @@
+#include "pch.h"
+#include "Drawing.h"
+
+#include <common/logger/logger.h>
+
+D2D1_COLOR_F Drawing::ConvertColor(COLORREF color)
+{
+    return D2D1::ColorF(GetRValue(color) / 255.f,
+                        GetGValue(color) / 255.f,
+                        GetBValue(color) / 255.f,
+                        1.f);
+}
+
+D2D1_COLOR_F Drawing::ConvertColor(winrt::Windows::UI::Color color)
+{
+    return D2D1::ColorF(color.R / 255.f,
+                        color.G / 255.f,
+                        color.B / 255.f,
+                        color.A / 255.f);
+}
+
+ID2D1Factory6* Drawing::GetD2DFactory()
+{
+    static auto pD2DFactory = [] {
+        D2D1_FACTORY_OPTIONS options = {
+#ifdef _DEBUG
+            D2D1_DEBUG_LEVEL_INFORMATION
+#endif
+        };
+        ID2D1Factory6* res = nullptr;
+
+        D2D1CreateFactory(D2D1_FACTORY_TYPE_MULTI_THREADED, options, &res);
+        return res;
+    }();
+    return pD2DFactory;
+}
+
+IDWriteFactory* Drawing::GetWriteFactory()
+{
+    static auto pDWriteFactory = [] {
+        winrt::com_ptr<IDWriteFactory> res;
+        IUnknown* unknown = nullptr;
+        if (SUCCEEDED(DWriteCreateFactory(DWRITE_FACTORY_TYPE_SHARED, __uuidof(IDWriteFactory), &unknown)) && unknown)
+        {
+            unknown->QueryInterface(__uuidof(IDWriteFactory), res.put_void());
+            unknown->Release();
+        }
+        return res.detach();
+    }();
+    return pDWriteFactory;
+}
+
+IWICImagingFactory2* Drawing::GetImageFactory()
+{
+    static auto pImageFactory = [] {
+        winrt::com_ptr<IWICImagingFactory2> res;
+        CoCreateInstance(CLSID_WICImagingFactory2, nullptr, CLSCTX_INPROC_SERVER | CLSCTX_LOCAL_SERVER, __uuidof(IWICImagingFactory2), res.put_void());
+        return res.detach();
+    }();
+    return pImageFactory;
+}
+
+Drawing::Drawing()
+{
+    m_window = nullptr;
+    m_renderTarget = nullptr;
+}
+
+void Drawing::Init(HWND window)
+{
+    m_window = window;
+
+    // Obtain the size of the drawing area.
+    if (!GetClientRect(window, m_renderRect.get()))
+    {
+        Logger::error("couldn't initialize Drawing: GetClientRect failed");
+        return;
+    }
+
+    // Create a Direct2D render target
+    // We should always use the DPI value of 96 since we're running in DPI aware mode
+    auto renderTargetProperties = D2D1::RenderTargetProperties(
+        D2D1_RENDER_TARGET_TYPE_DEFAULT,
+        D2D1::PixelFormat(DXGI_FORMAT_UNKNOWN, D2D1_ALPHA_MODE_PREMULTIPLIED),
+        96.f,
+        96.f);
+
+    auto renderTargetSize = D2D1::SizeU(m_renderRect.width(), m_renderRect.height());
+    auto hwndRenderTargetProperties = D2D1::HwndRenderTargetProperties(window, renderTargetSize);
+
+    auto d2dFactory = GetD2DFactory();
+    if (!d2dFactory)
+    {
+        return;
+    }
+
+    winrt::com_ptr<ID2D1HwndRenderTarget> renderTarget = nullptr;
+    auto hr = d2dFactory->CreateHwndRenderTarget(renderTargetProperties, hwndRenderTargetProperties, renderTarget.put());
+    if (!SUCCEEDED(hr))
+    {
+        Logger::error("couldn't initialize Drawing: CreateHwndRenderTarget failed with {}", hr);
+        return;
+    }
+
+    m_renderTarget = renderTarget;
+}
+
+Drawing::operator bool() const
+{
+    return bool(m_renderTarget);
+}
+
+void Drawing::BeginDraw(const D2D1_COLOR_F& backColor)
+{
+    if (!*this)
+    {
+        return;
+    }
+
+    m_renderTarget->BeginDraw();
+
+    // Draw backdrop
+    m_renderTarget->Clear(backColor);
+}
+
+winrt::com_ptr<IDWriteTextFormat> Drawing::CreateTextFormat(LPCWSTR fontFamilyName, FLOAT fontSize, DWRITE_FONT_WEIGHT fontWeight) const
+{
+    winrt::com_ptr<IDWriteTextFormat> textFormat = nullptr;
+
+    auto writeFactory = GetWriteFactory();
+
+    if (writeFactory)
+    {
+        writeFactory->CreateTextFormat(fontFamilyName, nullptr, fontWeight, DWRITE_FONT_STYLE_NORMAL, DWRITE_FONT_STRETCH_NORMAL, fontSize, L"en-US", textFormat.put());
+    }
+
+    return textFormat;
+}
+
+winrt::com_ptr<ID2D1SolidColorBrush> Drawing::CreateBrush(D2D1_COLOR_F color) const
+{
+    if (!*this)
+    {
+        return nullptr;
+    }
+
+    winrt::com_ptr<ID2D1SolidColorBrush> brush = nullptr;
+
+    m_renderTarget->CreateSolidColorBrush(color, brush.put());
+
+    return brush;
+}
+
+winrt::com_ptr<ID2D1StrokeStyle1> Drawing::CreateStroke() const
+{
+    if (!*this)
+    {
+        return nullptr;
+    }
+
+    winrt::com_ptr<ID2D1StrokeStyle1> stroke = nullptr;
+
+    auto properties = D2D1::StrokeStyleProperties1(
+        D2D1_CAP_STYLE_ROUND,
+        D2D1_CAP_STYLE_ROUND,
+        D2D1_CAP_STYLE_ROUND,
+        D2D1_LINE_JOIN_ROUND,
+        0.0f,
+        D2D1_DASH_STYLE_SOLID,
+        0.0f);
+    GetD2DFactory()->CreateStrokeStyle(properties, nullptr, 0, stroke.put());
+
+    return stroke;
+}
+
+winrt::com_ptr<ID2D1Bitmap> Drawing::CreateIcon(HICON icon) const
+{
+    if (!*this)
+    {
+        return nullptr;
+    }
+
+    winrt::com_ptr<ID2D1Bitmap> bitmap = nullptr;
+
+    auto imageFactory = GetImageFactory();
+
+    if (imageFactory)
+    {
+        winrt::com_ptr<IWICBitmap> wicBitmap = nullptr;
+        imageFactory->CreateBitmapFromHICON(icon, wicBitmap.put());
+
+        if (wicBitmap)
+        {
+            winrt::com_ptr<IWICFormatConverter> converter = nullptr;
+            imageFactory->CreateFormatConverter(converter.put());
+
+            if (converter)
+            {
+                converter->Initialize(wicBitmap.get(), GUID_WICPixelFormat32bppPBGRA, WICBitmapDitherTypeNone, nullptr, 0, WICBitmapPaletteTypeMedianCut);
+
+                D2D1_BITMAP_PROPERTIES bitmapProps;
+                bitmapProps.pixelFormat.format = DXGI_FORMAT_B8G8R8A8_UNORM;
+                bitmapProps.pixelFormat.alphaMode = D2D1_ALPHA_MODE_PREMULTIPLIED;
+                bitmapProps.dpiX = 96;
+                bitmapProps.dpiY = 96;
+
+                m_renderTarget->CreateBitmapFromWicBitmap(wicBitmap.get(), &bitmapProps, bitmap.put());
+            }
+        }
+    }
+
+    return bitmap;
+}
+
+winrt::com_ptr<ID2D1PathGeometry> Drawing::CreateTriangle(const D2D1_TRIANGLE& triangle) const
+{
+    if (!*this)
+    {
+        return nullptr;
+    }
+
+    winrt::com_ptr<ID2D1PathGeometry> geometry = nullptr;
+
+    GetD2DFactory()->CreatePathGeometry(geometry.put());
+
+    if (!geometry)
+    {
+        return nullptr;
+    }
+
+    winrt::com_ptr<ID2D1GeometrySink> tessellationSink = nullptr;
+
+    geometry->Open(tessellationSink.put());
+
+    if (!tessellationSink)
+    {
+        return nullptr;
+    }
+
+    tessellationSink->BeginFigure(triangle.point1, D2D1_FIGURE_BEGIN_FILLED);
+
+    tessellationSink->AddLine(triangle.point2);
+
+    tessellationSink->AddLine(triangle.point3);
+
+    tessellationSink->EndFigure(D2D1_FIGURE_END_CLOSED);
+
+    auto hr = tessellationSink->Close();
+
+    if (FAILED(hr))
+    {
+        return nullptr;
+    }
+
+    return geometry;
+}
+
+void Drawing::FillRectangle(const D2D1_RECT_F& rect, D2D1_COLOR_F color)
+{
+    if (!*this)
+    {
+        return;
+    }
+
+    auto brush = CreateBrush(color);
+    if (brush)
+    {
+        m_renderTarget->FillRectangle(rect, brush.get());
+    }
+}
+
+void Drawing::FillRoundedRectangle(const D2D1_RECT_F& rect, D2D1_COLOR_F color, float radiusFactor)
+{
+    if (!*this)
+    {
+        return;
+    }
+
+    auto brush = CreateBrush(color);
+    if (brush)
+    {
+        D2D1_ROUNDED_RECT roundedRect;
+        roundedRect.rect = rect;
+        roundedRect.radiusX = (rect.right - rect.left) * radiusFactor;
+        roundedRect.radiusY = (rect.bottom - rect.top) * radiusFactor;
+
+        auto radius = min(roundedRect.radiusX, roundedRect.radiusY);
+        roundedRect.radiusX = radius;
+        roundedRect.radiusY = radius;
+
+        m_renderTarget->FillRoundedRectangle(roundedRect, brush.get());
+    }
+}
+
+void Drawing::FillTopRoundedRectangle(const D2D1_RECT_F& rect, D2D1_COLOR_F color, float radius)
+{
+    if (!*this)
+    {
+        return;
+    }
+
+    auto brush = CreateBrush(color);
+    if (!brush)
+    {
+        return;
+    }
+
+    const auto width = rect.right - rect.left;
+    const auto height = rect.bottom - rect.top;
+    if (width <= 0 || height <= 0)
+    {
+        return;
+    }
+
+    const auto r = min(radius, min(width, height) / 2.f);
+
+    winrt::com_ptr<ID2D1PathGeometry> geometry;
+    GetD2DFactory()->CreatePathGeometry(geometry.put());
+    if (!geometry)
+    {
+        return;
+    }
+
+    winrt::com_ptr<ID2D1GeometrySink> sink;
+    geometry->Open(sink.put());
+    if (!sink)
+    {
+        return;
+    }
+
+    if (r <= 0.f)
+    {
+        sink->BeginFigure(D2D1::Point2F(rect.left, rect.top), D2D1_FIGURE_BEGIN_FILLED);
+        sink->AddLine(D2D1::Point2F(rect.right, rect.top));
+        sink->AddLine(D2D1::Point2F(rect.right, rect.bottom));
+        sink->AddLine(D2D1::Point2F(rect.left, rect.bottom));
+    }
+    else
+    {
+        sink->BeginFigure(D2D1::Point2F(rect.left, rect.top + r), D2D1_FIGURE_BEGIN_FILLED);
+        sink->AddArc(D2D1::ArcSegment(D2D1::Point2F(rect.left + r, rect.top), D2D1::SizeF(r, r), 0.f, D2D1_SWEEP_DIRECTION_CLOCKWISE, D2D1_ARC_SIZE_SMALL));
+        sink->AddLine(D2D1::Point2F(rect.right - r, rect.top));
+        sink->AddArc(D2D1::ArcSegment(D2D1::Point2F(rect.right, rect.top + r), D2D1::SizeF(r, r), 0.f, D2D1_SWEEP_DIRECTION_CLOCKWISE, D2D1_ARC_SIZE_SMALL));
+        sink->AddLine(D2D1::Point2F(rect.right, rect.bottom));
+        sink->AddLine(D2D1::Point2F(rect.left, rect.bottom));
+    }
+
+    sink->EndFigure(D2D1_FIGURE_END_CLOSED);
+
+    if (SUCCEEDED(sink->Close()))
+    {
+        m_renderTarget->FillGeometry(geometry.get(), brush.get());
+    }
+}
+
+void Drawing::FillEllipse(const D2D1_ELLIPSE& ellipse, D2D1_COLOR_F color)
+{
+    if (!*this)
+    {
+        return;
+    }
+
+    auto brush = CreateBrush(color);
+    if (brush)
+    {
+        m_renderTarget->FillEllipse(ellipse, brush.get());
+    }
+}
+
+void Drawing::FillGeometry(ID2D1PathGeometry* geometry, D2D1_COLOR_F color, float strokeWidth)
+{
+    if (!*this)
+    {
+        return;
+    }
+
+    auto brush = CreateBrush(color);
+    auto stroke = CreateStroke();
+    if (brush)
+    {
+        m_renderTarget->FillGeometry(geometry, brush.get());
+
+        if (stroke)
+        {
+            m_renderTarget->DrawGeometry(geometry, brush.get(), strokeWidth, stroke.get());
+        }
+    }
+}
+
+void Drawing::DrawRectangle(const D2D1_RECT_F& rect, D2D1_COLOR_F color, float strokeWidth)
+{
+    if (!*this)
+    {
+        return;
+    }
+
+    auto brush = CreateBrush(color);
+    if (brush)
+    {
+        m_renderTarget->DrawRectangle(rect, brush.get(), strokeWidth);
+    }
+}
+
+void Drawing::DrawRoundedRectangle(const D2D1_RECT_F& rect, D2D1_COLOR_F color, float strokeWidth)
+{
+    if (!*this)
+    {
+        return;
+    }
+
+    auto brush = CreateBrush(color);
+    if (brush)
+    {
+        D2D1_ROUNDED_RECT roundedRect;
+        roundedRect.rect = rect;
+        roundedRect.radiusX = (rect.right - rect.left) * .1f;
+        roundedRect.radiusY = (rect.bottom - rect.top) * .1f;
+        m_renderTarget->DrawRoundedRectangle(roundedRect, brush.get(), strokeWidth);
+    }
+}
+
+void Drawing::DrawTextW(std::wstring text, IDWriteTextFormat* textFormat, const D2D1_RECT_F& rect, D2D1_COLOR_F color)
+{
+    if (!*this || !textFormat)
+    {
+        return;
+    }
+
+    auto brush = CreateBrush(color);
+    if (brush)
+    {
+        textFormat->SetTextAlignment(DWRITE_TEXT_ALIGNMENT_CENTER);
+        textFormat->SetParagraphAlignment(DWRITE_PARAGRAPH_ALIGNMENT_CENTER);
+        m_renderTarget->DrawTextW(text.c_str(), static_cast<UINT32>(text.size()), textFormat, rect, brush.get());
+    }
+}
+
+void Drawing::DrawTextTrim(std::wstring text, IDWriteTextFormat* textFormat, const D2D1_RECT_F& rect, D2D1_COLOR_F color, bool hasUnderline)
+{
+    if (!*this || !textFormat)
+    {
+        return;
+    }
+
+    auto brush = CreateBrush(color);
+
+    auto writeFactory = GetWriteFactory();
+    if (!writeFactory)
+    {
+        return;
+    }
+
+    winrt::com_ptr<IDWriteInlineObject> ellipsis;
+    writeFactory->CreateEllipsisTrimmingSign(textFormat, ellipsis.put());
+
+    if (brush && ellipsis)
+    {
+        DWRITE_TRIMMING trimming{};
+        trimming.granularity = DWRITE_TRIMMING_GRANULARITY_CHARACTER;
+        textFormat->SetTrimming(&trimming, ellipsis.get());
+        textFormat->SetWordWrapping(DWRITE_WORD_WRAPPING_NO_WRAP);
+        textFormat->SetTextAlignment(DWRITE_TEXT_ALIGNMENT_LEADING);
+        textFormat->SetParagraphAlignment(DWRITE_PARAGRAPH_ALIGNMENT_CENTER);
+
+        auto width = rect.right - rect.left;
+        auto height = rect.bottom - rect.top;
+        auto textSize = static_cast<UINT32>(text.size());
+
+        winrt::com_ptr<IDWriteTextLayout> textLayout;
+        writeFactory->CreateTextLayout(text.c_str(), textSize, textFormat, width, height, textLayout.put());
+
+        if (textLayout)
+        {
+            DWRITE_TEXT_RANGE range = { 0, textSize };
+            textLayout->SetUnderline(hasUnderline, range);
+
+            auto origin = D2D1::Point2F(rect.left, rect.top);
+            m_renderTarget->DrawTextLayout(origin, textLayout.get(), brush.get());
+        }
+    }
+}
+
+void Drawing::DrawBitmap(const D2D1_RECT_F& rect, ID2D1Bitmap* bitmap, float opacity)
+{
+    if (!*this)
+    {
+        return;
+    }
+
+    m_renderTarget->DrawBitmap(bitmap, rect, opacity);
+}
+
+void Drawing::EndDraw()
+{
+    if (!*this)
+    {
+        return;
+    }
+
+    m_renderTarget->EndDraw();
+}

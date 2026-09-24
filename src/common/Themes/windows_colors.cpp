@@ -13,6 +13,11 @@ DWORD WindowsColors::rgb_color(winrt::Windows::UI::Color color)
 {
     return static_cast<DWORD>((color.R << 16) | (color.G << 8) | (color.B));
 }
+WindowsColors::Color WindowsColors::get_gray_text_color()
+{
+    winrt::Windows::UI::ViewManagement::UISettings uiSettings;
+    return uiSettings.UIElementColor(winrt::Windows::UI::ViewManagement::UIElementType::GrayText);
+}
 WindowsColors::Color WindowsColors::get_button_face_color()
 {
     winrt::Windows::UI::ViewManagement::UISettings uiSettings;

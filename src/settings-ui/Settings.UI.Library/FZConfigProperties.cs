@@ -59,6 +59,25 @@ namespace Microsoft.PowerToys.Settings.UI.Library
             FancyzonesNumberColor = new StringProperty(ConfigDefaults.DefaultFancyzonesNumberColor);
             FancyzonesSystemTheme = new BoolProperty(true);
             FancyzonesShowZoneNumber = new BoolProperty(true);
+            FancyzonesZoneTitleBarStyle = new IntProperty(8);
+            FancyzonesZoneTitleBarAutoHide = new BoolProperty();
+            FancyzonesTabBarFillZoneWidth = new BoolProperty(true);
+            FancyzonesTabBarTabWidth = new IntProperty(200);
+            FancyzonesTabBarTextSize = new IntProperty(14);
+            FancyzonesTabBarIconSize = new IntProperty(16);
+            FancyzonesTabBarFocusColor = new StringProperty(ConfigDefaults.DefaultFancyZonesTabBarFocusColor);
+            FancyzonesTabBarIconHorizontalSpacing = new IntProperty(8);
+            FancyzonesTabBarIconVerticalSpacing = new IntProperty(4);
+            FancyzonesTabBarHeight = new IntProperty(0);
+            FancyzonesTabBarCornerRadius = new IntProperty(8);
+            FancyzonesTabBarUnfocusedColor = new StringProperty(ConfigDefaults.DefaultFancyZonesTabBarUnfocusedColor);
+            FancyzonesTabBarFocusedTextColor = new StringProperty(ConfigDefaults.DefaultFancyZonesTabBarFocusedTextColor);
+            FancyzonesTabBarUnfocusedTextColor = new StringProperty(ConfigDefaults.DefaultFancyZonesTabBarUnfocusedTextColor);
+            FancyzonesTabBarIconLeftSpacing = new IntProperty(8);
+            FancyzonesTabBarCloseButtonSpacing = new IntProperty(8);
+            FancyzonesTabBarCloseButtonColor = new StringProperty(ConfigDefaults.DefaultFancyZonesTabBarCloseButtonColor);
+            FancyzonesTabBarCloseButtonBackgroundColor = new StringProperty(ConfigDefaults.DefaultFancyZonesTabBarCloseButtonBackgroundColor);
+            FancyzonesTabBarCloseButtonBackgroundShape = new IntProperty(1);
         }
 
         [JsonPropertyName("fancyzones_shiftDrag")]
@@ -166,6 +185,63 @@ namespace Microsoft.PowerToys.Settings.UI.Library
 
         [JsonPropertyName("fancyzones_showZoneNumber")]
         public BoolProperty FancyzonesShowZoneNumber { get; set; }
+
+        [JsonPropertyName("fancyzones_zoneTitleBarStyle")]
+        public IntProperty FancyzonesZoneTitleBarStyle { get; set; }
+
+        [JsonPropertyName("fancyzones_zoneTitleBarAutoHide")]
+        public BoolProperty FancyzonesZoneTitleBarAutoHide { get; set; }
+
+        [JsonPropertyName("fancyzones_tabBarFillZoneWidth")]
+        public BoolProperty FancyzonesTabBarFillZoneWidth { get; set; }
+
+        [JsonPropertyName("fancyzones_tabBarTabWidth")]
+        public IntProperty FancyzonesTabBarTabWidth { get; set; }
+
+        [JsonPropertyName("fancyzones_tabBarTextSize")]
+        public IntProperty FancyzonesTabBarTextSize { get; set; }
+
+        [JsonPropertyName("fancyzones_tabBarIconSize")]
+        public IntProperty FancyzonesTabBarIconSize { get; set; }
+
+        [JsonPropertyName("fancyzones_tabBarFocusColor")]
+        public StringProperty FancyzonesTabBarFocusColor { get; set; }
+
+        [JsonPropertyName("fancyzones_tabBarIconHorizontalSpacing")]
+        public IntProperty FancyzonesTabBarIconHorizontalSpacing { get; set; }
+
+        [JsonPropertyName("fancyzones_tabBarIconVerticalSpacing")]
+        public IntProperty FancyzonesTabBarIconVerticalSpacing { get; set; }
+
+        [JsonPropertyName("fancyzones_tabBarHeight")]
+        public IntProperty FancyzonesTabBarHeight { get; set; }
+
+        [JsonPropertyName("fancyzones_tabBarCornerRadius")]
+        public IntProperty FancyzonesTabBarCornerRadius { get; set; }
+
+        [JsonPropertyName("fancyzones_tabBarUnfocusedColor")]
+        public StringProperty FancyzonesTabBarUnfocusedColor { get; set; }
+
+        [JsonPropertyName("fancyzones_tabBarFocusedTextColor")]
+        public StringProperty FancyzonesTabBarFocusedTextColor { get; set; }
+
+        [JsonPropertyName("fancyzones_tabBarUnfocusedTextColor")]
+        public StringProperty FancyzonesTabBarUnfocusedTextColor { get; set; }
+
+        [JsonPropertyName("fancyzones_tabBarIconLeftSpacing")]
+        public IntProperty FancyzonesTabBarIconLeftSpacing { get; set; }
+
+        [JsonPropertyName("fancyzones_tabBarCloseButtonSpacing")]
+        public IntProperty FancyzonesTabBarCloseButtonSpacing { get; set; }
+
+        [JsonPropertyName("fancyzones_tabBarCloseButtonColor")]
+        public StringProperty FancyzonesTabBarCloseButtonColor { get; set; }
+
+        [JsonPropertyName("fancyzones_tabBarCloseButtonBackgroundColor")]
+        public StringProperty FancyzonesTabBarCloseButtonBackgroundColor { get; set; }
+
+        [JsonPropertyName("fancyzones_tabBarCloseButtonBackgroundShape")]
+        public IntProperty FancyzonesTabBarCloseButtonBackgroundShape { get; set; }
 
         // converts the current to a json string.
         public string ToJsonString()

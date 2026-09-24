@@ -14,5 +14,8 @@
             "file": ".github/prompts/create-pr-summary.prompt.md"
         }
     ],
-    "sarif-viewer.connectToGithubCodeScanning": "on"
+    "sarif-viewer.connectToGithubCodeScanning": "on",
+    "csharp-dev-tools.solutionViewer.selectedWorkspaceSolutions": [
+        "PowerToys.slnx"
+    ]
 }

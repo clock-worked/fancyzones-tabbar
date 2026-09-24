@@ -8,6 +8,12 @@ namespace Microsoft.PowerToys.Settings.UI.Library
     {
         // Fancy Zones Default Colors
         public static readonly string DefaultFancyZonesZoneHighlightColor = "#0078D7";
+        public static readonly string DefaultFancyZonesTabBarFocusColor = "#0078D7";
+        public static readonly string DefaultFancyZonesTabBarUnfocusedColor = "#E6E6E6";
+        public static readonly string DefaultFancyZonesTabBarFocusedTextColor = "#FFFFFF";
+        public static readonly string DefaultFancyZonesTabBarUnfocusedTextColor = "#000000";
+        public static readonly string DefaultFancyZonesTabBarCloseButtonColor = "#000000";
+        public static readonly string DefaultFancyZonesTabBarCloseButtonBackgroundColor = "#000000";
         public static readonly string DefaultFancyZonesInActiveColor = "#F5FCFF";
         public static readonly string DefaultFancyzonesBorderColor = "#FFFFFF";
         public static readonly string DefaultFancyzonesNumberColor = "#000000";

@@ -35,6 +35,25 @@ namespace NonLocalizable
     const wchar_t MakeDraggedWindowTransparentID[] = L"fancyzones_makeDraggedWindowTransparent";
     const wchar_t AllowChildWindowSnapID[] = L"fancyzones_allowChildWindowSnap";
     const wchar_t DisableRoundCornersOnSnapping[] = L"fancyzones_disableRoundCornersOnSnap";
+    const wchar_t ZoneTitleBarStyleID[] = L"fancyzones_zoneTitleBarStyle";
+    const wchar_t ZoneTitleBarAutoHideID[] = L"fancyzones_zoneTitleBarAutoHide";
+    const wchar_t TabBarFillZoneWidthID[] = L"fancyzones_tabBarFillZoneWidth";
+    const wchar_t TabBarTabWidthID[] = L"fancyzones_tabBarTabWidth";
+    const wchar_t TabBarTextSizeID[] = L"fancyzones_tabBarTextSize";
+    const wchar_t TabBarIconSizeID[] = L"fancyzones_tabBarIconSize";
+    const wchar_t TabBarFocusColorID[] = L"fancyzones_tabBarFocusColor";
+    const wchar_t TabBarIconHorizontalSpacingID[] = L"fancyzones_tabBarIconHorizontalSpacing";
+    const wchar_t TabBarIconVerticalSpacingID[] = L"fancyzones_tabBarIconVerticalSpacing";
+    const wchar_t TabBarHeightID[] = L"fancyzones_tabBarHeight";
+    const wchar_t TabBarCornerRadiusID[] = L"fancyzones_tabBarCornerRadius";
+    const wchar_t TabBarUnfocusedColorID[] = L"fancyzones_tabBarUnfocusedColor";
+    const wchar_t TabBarFocusedTextColorID[] = L"fancyzones_tabBarFocusedTextColor";
+    const wchar_t TabBarUnfocusedTextColorID[] = L"fancyzones_tabBarUnfocusedTextColor";
+    const wchar_t TabBarIconLeftSpacingID[] = L"fancyzones_tabBarIconLeftSpacing";
+    const wchar_t TabBarCloseButtonSpacingID[] = L"fancyzones_tabBarCloseButtonSpacing";
+    const wchar_t TabBarCloseButtonColorID[] = L"fancyzones_tabBarCloseButtonColor";
+    const wchar_t TabBarCloseButtonBackgroundColorID[] = L"fancyzones_tabBarCloseButtonBackgroundColor";
+    const wchar_t TabBarCloseButtonBackgroundShapeID[] = L"fancyzones_tabBarCloseButtonBackgroundShape";
 
     const wchar_t SystemThemeID[] = L"fancyzones_systemTheme";
     const wchar_t ZoneColorID[] = L"fancyzones_zoneColor";
@@ -131,6 +150,7 @@ void FancyZonesSettings::LoadSettings()
         SetBoolFlag(values, NonLocalizable::ShowZoneNumberID, SettingId::ShowZoneNumber, m_settings.showZoneNumber);
         SetBoolFlag(values, NonLocalizable::AllowChildWindowSnapID, SettingId::AllowSnapChildWindows, m_settings.allowSnapChildWindows);
         SetBoolFlag(values, NonLocalizable::DisableRoundCornersOnSnapping, SettingId::DisableRoundCornersOnSnapping, m_settings.disableRoundCorners);
+        SetBoolFlag(values, NonLocalizable::TabBarFillZoneWidthID, SettingId::ZoneTitleBarStyle, m_settings.tabBarFillZoneWidth);
 
         // colors
         if (auto val = values.get_string_value(NonLocalizable::ZoneColorID))
@@ -256,6 +276,102 @@ void FancyZonesSettings::LoadSettings()
                 {
                     m_settings.overlappingZonesAlgorithm = algorithm;
                     NotifyObservers(SettingId::OverlappingZonesAlgorithm);
+                }
+            }
+        }
+
+        // Zone title bar style + auto-hide are stored separately in settings UI
+        // and merged into the FancyZones runtime style enum.
+        {
+            const bool zoneTitleBarAutoHide = values.get_bool_value(NonLocalizable::ZoneTitleBarAutoHideID).value_or(false);
+            const int zoneTitleBarStyle = values.get_int_value(NonLocalizable::ZoneTitleBarStyleID).value_or(static_cast<int>(ZoneTitleBarStyle::Labels));
+            const bool validStyle = zoneTitleBarStyle >= 0 && zoneTitleBarStyle < static_cast<int>(ZoneTitleBarStyle::EnumElements);
+
+            if (validStyle)
+            {
+                auto style = static_cast<ZoneTitleBarStyle>(zoneTitleBarStyle);
+                if (zoneTitleBarAutoHide && style != ZoneTitleBarStyle::None)
+                {
+                    style = static_cast<ZoneTitleBarStyle>(zoneTitleBarStyle | static_cast<int>(ZoneTitleBarStyle::AutoHide));
+                }
+
+                if (m_settings.zoneTitleBarStyle != style)
+                {
+                    m_settings.zoneTitleBarStyle = style;
+                    NotifyObservers(SettingId::ZoneTitleBarStyle);
+                }
+            }
+        }
+
+        const auto updateTabBarSize = [this, &values](const wchar_t* id, int& setting, int minimum = 1) {
+            if (const auto value = values.get_int_value(id); value && *value >= minimum && *value <= 1000 && setting != *value)
+            {
+                setting = *value;
+                NotifyObservers(SettingId::ZoneTitleBarStyle);
+            }
+        };
+
+        updateTabBarSize(NonLocalizable::TabBarTabWidthID, m_settings.tabBarTabWidth);
+        updateTabBarSize(NonLocalizable::TabBarTextSizeID, m_settings.tabBarTextSize);
+        updateTabBarSize(NonLocalizable::TabBarIconSizeID, m_settings.tabBarIconSize);
+        updateTabBarSize(NonLocalizable::TabBarIconHorizontalSpacingID, m_settings.tabBarIconHorizontalSpacing, 0);
+        updateTabBarSize(NonLocalizable::TabBarIconVerticalSpacingID, m_settings.tabBarIconVerticalSpacing, 0);
+        updateTabBarSize(NonLocalizable::TabBarHeightID, m_settings.tabBarHeight, 0);
+        updateTabBarSize(NonLocalizable::TabBarCornerRadiusID, m_settings.tabBarCornerRadius, 0);
+        updateTabBarSize(NonLocalizable::TabBarIconLeftSpacingID, m_settings.tabBarIconLeftSpacing, 0);
+        updateTabBarSize(NonLocalizable::TabBarCloseButtonSpacingID, m_settings.tabBarCloseButtonSpacing, 0);
+
+        if (const auto value = values.get_string_value(NonLocalizable::TabBarFocusColorID);
+            value && !value->empty() && m_settings.tabBarFocusColor != *value)
+        {
+            m_settings.tabBarFocusColor = *value;
+            NotifyObservers(SettingId::ZoneTitleBarStyle);
+        }
+
+        if (const auto value = values.get_string_value(NonLocalizable::TabBarUnfocusedColorID);
+            value && !value->empty() && m_settings.tabBarUnfocusedColor != *value)
+        {
+            m_settings.tabBarUnfocusedColor = *value;
+            NotifyObservers(SettingId::ZoneTitleBarStyle);
+        }
+
+        if (const auto value = values.get_string_value(NonLocalizable::TabBarFocusedTextColorID);
+            value && !value->empty() && m_settings.tabBarFocusedTextColor != *value)
+        {
+            m_settings.tabBarFocusedTextColor = *value;
+            NotifyObservers(SettingId::ZoneTitleBarStyle);
+        }
+
+        if (const auto value = values.get_string_value(NonLocalizable::TabBarUnfocusedTextColorID);
+            value && !value->empty() && m_settings.tabBarUnfocusedTextColor != *value)
+        {
+            m_settings.tabBarUnfocusedTextColor = *value;
+            NotifyObservers(SettingId::ZoneTitleBarStyle);
+        }
+
+        if (const auto value = values.get_string_value(NonLocalizable::TabBarCloseButtonColorID);
+            value && !value->empty() && m_settings.tabBarCloseButtonColor != *value)
+        {
+            m_settings.tabBarCloseButtonColor = *value;
+            NotifyObservers(SettingId::ZoneTitleBarStyle);
+        }
+
+        if (const auto value = values.get_string_value(NonLocalizable::TabBarCloseButtonBackgroundColorID);
+            value && !value->empty() && m_settings.tabBarCloseButtonBackgroundColor != *value)
+        {
+            m_settings.tabBarCloseButtonBackgroundColor = *value;
+            NotifyObservers(SettingId::ZoneTitleBarStyle);
+        }
+
+        if (const auto value = values.get_int_value(NonLocalizable::TabBarCloseButtonBackgroundShapeID))
+        {
+            if (*value >= 0 && *value < static_cast<int>(TabBarCloseButtonShape::EnumElements))
+            {
+                const auto shape = static_cast<TabBarCloseButtonShape>(*value);
+                if (m_settings.tabBarCloseButtonBackgroundShape != shape)
+                {
+                    m_settings.tabBarCloseButtonBackgroundShape = shape;
+                    NotifyObservers(SettingId::ZoneTitleBarStyle);
                 }
             }
         }

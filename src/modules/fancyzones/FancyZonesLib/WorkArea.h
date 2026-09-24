@@ -5,6 +5,7 @@
 
 #include <FancyZonesLib/Layout.h>
 #include <FancyZonesLib/LayoutAssignedWindows.h>
+#include <FancyZonesLib/ZoneTitleBar.h>
 
 class ZonesOverlay;
 
@@ -60,12 +61,21 @@ public:
     
     void CycleWindows(HWND window, bool reverse);
 
+#if defined(UNIT_TESTS)
+    bool HasTitleBarForZone(const ZoneIndexSet& zones) const
+    {
+        return m_zoneTitleBars.contains(zones);
+    }
+#endif
+
 protected:
     static LRESULT CALLBACK s_WndProc(HWND window, UINT message, WPARAM wparam, LPARAM lparam) noexcept;
 
 private:
     bool InitWindow(HINSTANCE hinstance);
     void InitLayout(const FancyZonesDataTypes::WorkAreaId& parentUniqueId);
+    void UpdateZoneTitleBars();
+    FancyZonesUtils::Rect GetZoneInlineFrame(const ZoneIndexSet& zones) const;
     
     void CalculateZoneSet();
     void SetWorkAreaWindowAsTopmost(HWND draggedWindow) noexcept;
@@ -74,8 +84,11 @@ private:
     
     const FancyZonesUtils::Rect m_workAreaRect{};
     const FancyZonesDataTypes::WorkAreaId m_uniqueId;
+    const HINSTANCE m_hinstance{};
     HWND m_window{}; // Hidden tool window used to represent current monitor desktop work area.
     std::unique_ptr<Layout> m_layout;
     LayoutAssignedWindows m_layoutWindows{};
+    std::map<ZoneIndexSet, std::unique_ptr<IZoneTitleBar>> m_zoneTitleBars{};
+    std::optional<ZoneTitleBarStyle> m_zoneTitleBarStyle;
     std::unique_ptr<ZonesOverlay> m_zonesOverlay;
 };

@@ -217,7 +217,7 @@ struct FancyZones : public winrt::implements<FancyZones, IFancyZones, IFancyZone
 {
 public:
     FancyZones(HINSTANCE hinstance, std::function<void()> disableModuleCallbackFunction) noexcept :
-        SettingsObserver({ SettingId::EditorHotkey, SettingId::WindowSwitching, SettingId::PrevTabHotkey, SettingId::NextTabHotkey, SettingId::SpanZonesAcrossMonitors, SettingId::MonitorRotation, SettingId::MonitorRotationHotkey }),
+        SettingsObserver({ SettingId::EditorHotkey, SettingId::WindowSwitching, SettingId::PrevTabHotkey, SettingId::NextTabHotkey, SettingId::SpanZonesAcrossMonitors, SettingId::MonitorRotation, SettingId::MonitorRotationHotkey, SettingId::ZoneTitleBarStyle }),
         m_hinstance(hinstance),
         m_draggingState([this]() {
             PostMessageW(m_window, WM_PRIV_LOCATIONCHANGE, NULL, NULL);
@@ -271,6 +271,7 @@ public:
         case EVENT_OBJECT_UNCLOAKED:
         case EVENT_OBJECT_SHOW:
         case EVENT_OBJECT_CREATE:
+        case EVENT_SYSTEM_MINIMIZEEND:
             if (data->idObject == OBJID_WINDOW)
             {
                 PostMessageW(m_window, WM_PRIV_WINDOWCREATED, wparam, lparam);
@@ -278,6 +279,7 @@ public:
             break;
 
         case EVENT_OBJECT_DESTROY:
+        case EVENT_SYSTEM_MINIMIZESTART:
             if (data->idObject == OBJID_WINDOW)
             {
                 PostMessageW(m_window, WM_PRIV_WINDOWDESTROYED, wparam, lparam);
@@ -704,7 +706,7 @@ FancyZones::OnKeyDown(PKBDLLHOOKSTRUCT info) noexcept
         {
             if (ShouldProcessSnapHotkey(info->vkCode))
             {
-                Trace::FancyZones::OnKeyDown(info->vkCode, win, ctrl, false /*inMoveSize*/);
+                Trace::FancyZones::OnKeyDownOrUp(info->vkCode, win, ctrl, false /*inMoveSize*/);
                 // Win+Left, Win+Right will cycle through Zones in the active ZoneSet when WM_PRIV_SNAP_HOTKEY's handled
                 PostMessageW(m_window, WM_PRIV_SNAP_HOTKEY, 0, info->vkCode);
                 return true;
@@ -1087,7 +1089,8 @@ void FancyZones::OnKeyboardInput(WPARAM /*flags*/, HRAWINPUT hInput) noexcept
 
     switch (input.value().vkKey)
     {
-    case VK_SHIFT:
+    case VK_LSHIFT:
+    case VK_RSHIFT:
         {
             m_draggingState.SetShiftState(input.value().pressed);
         }
@@ -1590,6 +1593,11 @@ void FancyZones::SettingsUpdate(SettingId id)
         AbortMoveSize();
         m_workAreaConfiguration.Clear();
         PostMessageW(m_window, WM_PRIV_INIT, NULL, NULL);
+    }
+    break;
+    case SettingId::ZoneTitleBarStyle:
+    {
+        RefreshLayouts();
     }
     break;
     default:

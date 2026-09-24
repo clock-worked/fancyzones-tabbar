@@ -290,15 +290,18 @@ namespace FancyZonesUnitTests
                 .serialNumber = L"serial-number-1" },
             .virtualDesktopId = FancyZonesUtils::GuidFromString(L"{310F2924-B587-4D87-97C2-90031BDBE3F1}").value()
         };
+        Settings m_originalSettings;
 
         TEST_METHOD_INITIALIZE(Init) noexcept
         {
             AppZoneHistory::instance().LoadData();
+            m_originalSettings = FancyZonesSettings::settings();
         }
 
         TEST_METHOD_CLEANUP(CleanUp) noexcept
         {
             std::filesystem::remove(AppZoneHistory::AppZoneHistoryFileName());
+            FancyZonesSettings::instance().SetSettings(m_originalSettings);
         }
 
         TEST_METHOD (WhenWindowIsNotResizablePlacingItIntoTheZoneShouldNotResizeIt)
@@ -472,6 +475,44 @@ namespace FancyZonesUnitTests
 
             const auto& layoutWindows = workArea->GetLayoutWindows();
             Assert::IsTrue(layoutWindows.GetZoneIndexSetFromWindow(window).empty());
+        }
+
+        TEST_METHOD (TabsStyleSingleWindowShouldNotCreateZoneTitleBar)
+        {
+            auto settings = FancyZonesSettings::settings();
+            settings.zoneTitleBarStyle = ZoneTitleBarStyle::Tabs;
+            FancyZonesSettings::instance().SetSettings(settings);
+
+            const auto workArea = WorkArea::Create(m_hInst, m_workAreaId, m_parentUniqueId, m_workAreaRect);
+            const auto window = Mocks::WindowCreate(m_hInst, L"", L"", 0, WS_THICKFRAME);
+
+            Assert::IsTrue(workArea->Snap(window, { 1 }, true));
+
+            Assert::IsFalse(workArea->HasTitleBarForZone({ 1 }));
+
+            RECT zonedWindowRect;
+            GetWindowRect(window, &zonedWindowRect);
+
+            const RECT zoneRect = workArea->GetLayout()->Zones().at(1).GetZoneRect();
+            Assert::AreEqual(zoneRect.left, zonedWindowRect.left);
+            Assert::AreEqual(zoneRect.right, zonedWindowRect.right);
+            Assert::AreEqual(zoneRect.top, zonedWindowRect.top);
+            Assert::AreEqual(zoneRect.bottom, zonedWindowRect.bottom);
+        }
+
+        TEST_METHOD (TabsStyleMultipleWindowsShouldCreateZoneTitleBar)
+        {
+            auto settings = FancyZonesSettings::settings();
+            settings.zoneTitleBarStyle = ZoneTitleBarStyle::Tabs;
+            FancyZonesSettings::instance().SetSettings(settings);
+
+            const auto workArea = WorkArea::Create(m_hInst, m_workAreaId, m_parentUniqueId, m_workAreaRect);
+            const auto window1 = Mocks::WindowCreate(m_hInst, L"", L"", 0, WS_THICKFRAME);
+            const auto window2 = Mocks::WindowCreate(m_hInst, L"", L"", 0, WS_THICKFRAME);
+
+            Assert::IsTrue(workArea->Snap(window1, { 1 }, true));
+            Assert::IsTrue(workArea->Snap(window2, { 1 }, true));
+            Assert::IsTrue(workArea->HasTitleBarForZone({ 1 }));
         }
     };
 }

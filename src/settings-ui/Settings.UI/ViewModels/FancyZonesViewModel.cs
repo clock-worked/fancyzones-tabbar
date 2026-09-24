@@ -92,6 +92,25 @@ namespace Microsoft.PowerToys.Settings.UI.ViewModels
             _showZoneNumber = Settings.Properties.FancyzonesShowZoneNumber.Value;
             _windowSwitching = Settings.Properties.FancyzonesWindowSwitching.Value;
             _monitorRotation = Settings.Properties.FancyzonesMonitorRotation.Value;
+            _zoneTitleBarStyle = Settings.Properties.FancyzonesZoneTitleBarStyle.Value;
+            _zoneTitleBarAutoHide = Settings.Properties.FancyzonesZoneTitleBarAutoHide.Value;
+            _tabBarFillZoneWidth = Settings.Properties.FancyzonesTabBarFillZoneWidth.Value;
+            _tabBarTabWidth = Settings.Properties.FancyzonesTabBarTabWidth.Value;
+            _tabBarTextSize = Settings.Properties.FancyzonesTabBarTextSize.Value;
+            _tabBarIconSize = Settings.Properties.FancyzonesTabBarIconSize.Value;
+            _tabBarFocusColor = Settings.Properties.FancyzonesTabBarFocusColor.Value;
+            _tabBarIconHorizontalSpacing = Settings.Properties.FancyzonesTabBarIconHorizontalSpacing.Value;
+            _tabBarIconVerticalSpacing = Settings.Properties.FancyzonesTabBarIconVerticalSpacing.Value;
+            _tabBarHeight = Settings.Properties.FancyzonesTabBarHeight.Value;
+            _tabBarCornerRadius = Settings.Properties.FancyzonesTabBarCornerRadius.Value;
+            _tabBarUnfocusedColor = Settings.Properties.FancyzonesTabBarUnfocusedColor.Value;
+            _tabBarFocusedTextColor = Settings.Properties.FancyzonesTabBarFocusedTextColor.Value;
+            _tabBarUnfocusedTextColor = Settings.Properties.FancyzonesTabBarUnfocusedTextColor.Value;
+            _tabBarIconLeftSpacing = Settings.Properties.FancyzonesTabBarIconLeftSpacing.Value;
+            _tabBarCloseButtonSpacing = Settings.Properties.FancyzonesTabBarCloseButtonSpacing.Value;
+            _tabBarCloseButtonColor = Settings.Properties.FancyzonesTabBarCloseButtonColor.Value;
+            _tabBarCloseButtonBackgroundColor = Settings.Properties.FancyzonesTabBarCloseButtonBackgroundColor.Value;
+            _tabBarCloseButtonBackgroundShape = Settings.Properties.FancyzonesTabBarCloseButtonBackgroundShape.Value;
 
             EditorHotkey = Settings.Properties.FancyzonesEditorHotkey.Value;
             NextTabHotkey = Settings.Properties.FancyzonesNextTabHotkey.Value;
@@ -175,6 +194,25 @@ namespace Microsoft.PowerToys.Settings.UI.ViewModels
         private bool _allowPopupWindowSnap;
         private bool _allowChildWindowSnap;
         private bool _disableRoundCornersOnSnap;
+        private int _zoneTitleBarStyle;
+        private bool _zoneTitleBarAutoHide;
+        private bool _tabBarFillZoneWidth;
+        private int _tabBarTabWidth;
+        private int _tabBarTextSize;
+        private int _tabBarIconSize;
+        private string _tabBarFocusColor;
+        private int _tabBarIconHorizontalSpacing;
+        private int _tabBarIconVerticalSpacing;
+        private int _tabBarHeight;
+        private int _tabBarCornerRadius;
+        private string _tabBarUnfocusedColor;
+        private string _tabBarFocusedTextColor;
+        private string _tabBarUnfocusedTextColor;
+        private int _tabBarIconLeftSpacing;
+        private int _tabBarCloseButtonSpacing;
+        private string _tabBarCloseButtonColor;
+        private string _tabBarCloseButtonBackgroundColor;
+        private int _tabBarCloseButtonBackgroundShape;
 
         private int _highlightOpacity;
         private string _excludedApps;
@@ -258,6 +296,8 @@ namespace Microsoft.PowerToys.Settings.UI.ViewModels
                 return _isEnabled && _monitorRotation;
             }
         }
+
+        public bool TabBarSettingsEnabled => _zoneTitleBarStyle == 6;
 
         public bool ShiftDrag
         {
@@ -821,6 +861,221 @@ namespace Microsoft.PowerToys.Settings.UI.ViewModels
                     NotifyPropertyChanged();
                     OnPropertyChanged(nameof(WindowSwitchingCategoryEnabled));
                 }
+            }
+        }
+
+        public int ZoneTitleBarStyleIndex
+        {
+            get => _zoneTitleBarStyle / 2;
+            set
+            {
+                var style = value * 2;
+                if (style != _zoneTitleBarStyle)
+                {
+                    _zoneTitleBarStyle = style;
+                    Settings.Properties.FancyzonesZoneTitleBarStyle.Value = style;
+                    NotifyPropertyChanged();
+                    OnPropertyChanged(nameof(TabBarSettingsEnabled));
+                }
+            }
+        }
+
+        public bool ZoneTitleBarAutoHide
+        {
+            get => _zoneTitleBarAutoHide;
+            set
+            {
+                if (value != _zoneTitleBarAutoHide)
+                {
+                    _zoneTitleBarAutoHide = value;
+                    Settings.Properties.FancyzonesZoneTitleBarAutoHide.Value = value;
+                    NotifyPropertyChanged();
+                }
+            }
+        }
+
+        public bool TabBarFillZoneWidth
+        {
+            get => _tabBarFillZoneWidth;
+            set
+            {
+                if (value != _tabBarFillZoneWidth)
+                {
+                    _tabBarFillZoneWidth = value;
+                    Settings.Properties.FancyzonesTabBarFillZoneWidth.Value = value;
+                    NotifyPropertyChanged();
+                    OnPropertyChanged(nameof(TabBarTabWidthEnabled));
+                }
+            }
+        }
+
+        public bool TabBarTabWidthEnabled => TabBarSettingsEnabled && !_tabBarFillZoneWidth;
+
+        public int TabBarTabWidth
+        {
+            get => _tabBarTabWidth;
+            set => SetTabBarSize(value, ref _tabBarTabWidth, Settings.Properties.FancyzonesTabBarTabWidth, nameof(TabBarTabWidth));
+        }
+
+        public int TabBarTextSize
+        {
+            get => _tabBarTextSize;
+            set => SetTabBarSize(value, ref _tabBarTextSize, Settings.Properties.FancyzonesTabBarTextSize, nameof(TabBarTextSize));
+        }
+
+        public int TabBarIconSize
+        {
+            get => _tabBarIconSize;
+            set => SetTabBarSize(value, ref _tabBarIconSize, Settings.Properties.FancyzonesTabBarIconSize, nameof(TabBarIconSize));
+        }
+
+        public string TabBarFocusColor
+        {
+            get => _tabBarFocusColor;
+            set
+            {
+                value = SettingsUtilities.ToRGBHex(value);
+                if (!value.Equals(_tabBarFocusColor, StringComparison.OrdinalIgnoreCase))
+                {
+                    _tabBarFocusColor = value;
+                    Settings.Properties.FancyzonesTabBarFocusColor.Value = value;
+                    NotifyPropertyChanged();
+                }
+            }
+        }
+
+        public int TabBarIconHorizontalSpacing
+        {
+            get => _tabBarIconHorizontalSpacing;
+            set => SetTabBarSize(value, ref _tabBarIconHorizontalSpacing, Settings.Properties.FancyzonesTabBarIconHorizontalSpacing, nameof(TabBarIconHorizontalSpacing), 0);
+        }
+
+        public int TabBarIconVerticalSpacing
+        {
+            get => _tabBarIconVerticalSpacing;
+            set => SetTabBarSize(value, ref _tabBarIconVerticalSpacing, Settings.Properties.FancyzonesTabBarIconVerticalSpacing, nameof(TabBarIconVerticalSpacing), 0);
+        }
+
+        public int TabBarHeight
+        {
+            get => _tabBarHeight;
+            set => SetTabBarSize(value, ref _tabBarHeight, Settings.Properties.FancyzonesTabBarHeight, nameof(TabBarHeight), 0);
+        }
+
+        public int TabBarCornerRadius
+        {
+            get => _tabBarCornerRadius;
+            set => SetTabBarSize(value, ref _tabBarCornerRadius, Settings.Properties.FancyzonesTabBarCornerRadius, nameof(TabBarCornerRadius), 0);
+        }
+
+        public string TabBarUnfocusedColor
+        {
+            get => _tabBarUnfocusedColor;
+            set
+            {
+                value = SettingsUtilities.ToRGBHex(value);
+                if (!value.Equals(_tabBarUnfocusedColor, StringComparison.OrdinalIgnoreCase))
+                {
+                    _tabBarUnfocusedColor = value;
+                    Settings.Properties.FancyzonesTabBarUnfocusedColor.Value = value;
+                    NotifyPropertyChanged();
+                }
+            }
+        }
+
+        public string TabBarFocusedTextColor
+        {
+            get => _tabBarFocusedTextColor;
+            set
+            {
+                value = SettingsUtilities.ToRGBHex(value);
+                if (!value.Equals(_tabBarFocusedTextColor, StringComparison.OrdinalIgnoreCase))
+                {
+                    _tabBarFocusedTextColor = value;
+                    Settings.Properties.FancyzonesTabBarFocusedTextColor.Value = value;
+                    NotifyPropertyChanged();
+                }
+            }
+        }
+
+        public string TabBarUnfocusedTextColor
+        {
+            get => _tabBarUnfocusedTextColor;
+            set
+            {
+                value = SettingsUtilities.ToRGBHex(value);
+                if (!value.Equals(_tabBarUnfocusedTextColor, StringComparison.OrdinalIgnoreCase))
+                {
+                    _tabBarUnfocusedTextColor = value;
+                    Settings.Properties.FancyzonesTabBarUnfocusedTextColor.Value = value;
+                    NotifyPropertyChanged();
+                }
+            }
+        }
+
+        public int TabBarIconLeftSpacing
+        {
+            get => _tabBarIconLeftSpacing;
+            set => SetTabBarSize(value, ref _tabBarIconLeftSpacing, Settings.Properties.FancyzonesTabBarIconLeftSpacing, nameof(TabBarIconLeftSpacing), 0);
+        }
+
+        public int TabBarCloseButtonSpacing
+        {
+            get => _tabBarCloseButtonSpacing;
+            set => SetTabBarSize(value, ref _tabBarCloseButtonSpacing, Settings.Properties.FancyzonesTabBarCloseButtonSpacing, nameof(TabBarCloseButtonSpacing), 0);
+        }
+
+        public string TabBarCloseButtonColor
+        {
+            get => _tabBarCloseButtonColor;
+            set
+            {
+                value = SettingsUtilities.ToRGBHex(value);
+                if (!value.Equals(_tabBarCloseButtonColor, StringComparison.OrdinalIgnoreCase))
+                {
+                    _tabBarCloseButtonColor = value;
+                    Settings.Properties.FancyzonesTabBarCloseButtonColor.Value = value;
+                    NotifyPropertyChanged();
+                }
+            }
+        }
+
+        public string TabBarCloseButtonBackgroundColor
+        {
+            get => _tabBarCloseButtonBackgroundColor;
+            set
+            {
+                value = SettingsUtilities.ToRGBHex(value);
+                if (!value.Equals(_tabBarCloseButtonBackgroundColor, StringComparison.OrdinalIgnoreCase))
+                {
+                    _tabBarCloseButtonBackgroundColor = value;
+                    Settings.Properties.FancyzonesTabBarCloseButtonBackgroundColor.Value = value;
+                    NotifyPropertyChanged();
+                }
+            }
+        }
+
+        public int TabBarCloseButtonBackgroundShape
+        {
+            get => _tabBarCloseButtonBackgroundShape;
+            set
+            {
+                if (value != _tabBarCloseButtonBackgroundShape)
+                {
+                    _tabBarCloseButtonBackgroundShape = value;
+                    Settings.Properties.FancyzonesTabBarCloseButtonBackgroundShape.Value = value;
+                    NotifyPropertyChanged();
+                }
+            }
+        }
+
+        private void SetTabBarSize(int value, ref int field, IntProperty setting, string propertyName, int minimum = 1)
+        {
+            if (value >= minimum && value <= 1000 && value != field)
+            {
+                field = value;
+                setting.Value = value;
+                NotifyPropertyChanged(propertyName);
             }
         }
 
