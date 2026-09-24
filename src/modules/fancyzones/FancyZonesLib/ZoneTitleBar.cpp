@@ -5,6 +5,7 @@
 #include <FancyZonesLib/WindowUtils.h>
 #include <common/Themes/windows_colors.h>
 #include <set>
+#include <unordered_map>
 #include <windowsx.h>
 
 // Legacy FancyZones title bar code relies on several event callback signatures
@@ -22,6 +23,26 @@
 
 
 using namespace FancyZonesUtils;
+
+static D2D1_COLOR_F ParseHexColor(std::wstring_view hexColor)
+{
+    if (hexColor.size() != 7 || hexColor[0] != L'#')
+    {
+        return D2D1::ColorF(0x0078D7u);
+    }
+
+    auto parseByte = [](std::wstring_view value) {
+        return static_cast<unsigned char>(std::stoi(std::wstring(value), nullptr, 16));
+    };
+
+    const auto red = parseByte(hexColor.substr(1, 2));
+    const auto green = parseByte(hexColor.substr(3, 2));
+    const auto blue = parseByte(hexColor.substr(5, 2));
+
+    return D2D1::ColorF(static_cast<float>(red) / 255.f, static_cast<float>(green) / 255.f, static_cast<float>(blue) / 255.f, 1.f);
+}
+
+static std::unordered_map<HWND, std::wstring> tabTitleOverrides;
 
 class ZoneTitleBarColors
 {
@@ -115,7 +136,21 @@ static void DrawWindowIcon(Drawing& drawing, const D2D1_RECT_F& rect, HWND windo
     if (icon != nullptr)
     {
         auto bitmap = drawing.CreateIcon(icon);
-        drawing.DrawBitmap(rect, bitmap.get(), opacity);
+        if (bitmap)
+        {
+            const auto bitmapSize = bitmap->GetSize();
+            const auto width = rect.right - rect.left;
+            const auto height = rect.bottom - rect.top;
+            const auto scale = min(width / bitmapSize.width, height / bitmapSize.height);
+            const auto iconWidth = bitmapSize.width * scale;
+            const auto iconHeight = bitmapSize.height * scale;
+            const auto iconRect = D2D1::RectF(
+                rect.left + (width - iconWidth) / 2,
+                rect.top + (height - iconHeight) / 2,
+                rect.left + (width + iconWidth) / 2,
+                rect.top + (height + iconHeight) / 2);
+            drawing.DrawBitmap(iconRect, bitmap.get(), opacity);
+        }
     }
 }
 
@@ -133,6 +168,10 @@ public:
 
     void ReadjustPos() override {}
 
+    Rect GetZoneRect() const override { return m_zone; }
+
+    UINT GetDpi() const override { return 96; }
+
     Rect GetInlineFrame() const override { return m_zone; }
 
 private:
@@ -142,11 +181,12 @@ private:
 class VisibleZoneTitleBar : public IZoneTitleBar
 {
 protected:
-    VisibleZoneTitleBar(bool isAboveZone, Rect zone, UINT dpi) :
+    VisibleZoneTitleBar(bool isAboveZone, Rect zone, UINT dpi, std::function<void(HWND)> removeWindowFromZoneCallback = {}) :
         m_isAboveZone(isAboveZone),
         m_zone(zone),
         m_dpi(dpi),
-        m_zoneCurrentWindow(NULL)
+        m_zoneCurrentWindow(NULL),
+        m_removeWindowFromZoneCallback(std::move(removeWindowFromZoneCallback))
     {
     }
 
@@ -167,7 +207,7 @@ protected:
                 HWND windowAboveZoneCurrentWindow = GetWindow(m_zoneCurrentWindow, GW_HWNDPREV);
 
                 // Put the zone title bar just below the windowAboveZoneCurrentWindow
-                return windowAboveZoneCurrentWindow;
+                return windowAboveZoneCurrentWindow ? windowAboveZoneCurrentWindow : HWND_TOP;
             }
         }
         else
@@ -181,11 +221,8 @@ protected:
     {
         m_zoneCurrentWindow = GetWindowAboveAllOthers(m_zoneWindows);
 
-        if (m_zoneCurrentWindow != NULL)
-        {
-            HWND windowBeforeTheZoneTitleBar = GetDestinedWindowBeforeTheZoneTitleBar();
-            SetWindowPos(m_window, windowBeforeTheZoneTitleBar, 0, 0, 0, 0, SWP_NOACTIVATE | SWP_NOMOVE | SWP_NOOWNERZORDER | SWP_NOSIZE);
-        }
+        HWND windowBeforeTheZoneTitleBar = m_zoneCurrentWindow != NULL ? GetDestinedWindowBeforeTheZoneTitleBar() : HWND_TOP;
+        SetWindowPos(m_window, windowBeforeTheZoneTitleBar, 0, 0, 0, 0, SWP_NOACTIVATE | SWP_NOMOVE | SWP_NOOWNERZORDER | SWP_NOSIZE);
 
         OnPaint(m_window);
     }
@@ -208,7 +245,13 @@ protected:
             HANDLE_MSG(window, WM_DWMCOLORIZATIONCOLORCHANGED, OnDwmColorizationColorChanged);
             HANDLE_MSG(window, WM_PAINT, OnPaint);
             HANDLE_MSG(window, WM_LBUTTONDOWN, OnLButtonDown);
+            HANDLE_MSG(window, WM_RBUTTONDOWN, OnRButtonDown);
+            HANDLE_MSG(window, WM_NCLBUTTONDOWN, OnNcLButtonDown);
+            HANDLE_MSG(window, WM_MOUSEMOVE, OnMouseMove);
             HANDLE_MSG(window, WM_ERASEBKGND, OnEraseBackground);
+        case WM_MOUSELEAVE:
+            OnMouseLeave(window);
+            return 0;
 
         default:
             return DefWindowProcW(window, message, wParam, lParam);
@@ -276,6 +319,40 @@ protected:
 
     virtual void OnLButtonDown(HWND hwnd, BOOL doubleClick, int x, int y, UINT keyFlags) = 0;
 
+    virtual void OnRButtonDown(HWND hwnd, BOOL doubleClick, int x, int y, UINT keyFlags)
+    {
+    }
+
+    void SelectZoneWindow(HWND window)
+    {
+        if (!window)
+        {
+            return;
+        }
+
+        FancyZonesWindowUtils::SwitchToWindow(window);
+        m_zoneCurrentWindow = window;
+
+        HWND windowBeforeTheZoneTitleBar = GetDestinedWindowBeforeTheZoneTitleBar();
+        SetWindowPos(m_window, windowBeforeTheZoneTitleBar, 0, 0, 0, 0, SWP_NOACTIVATE | SWP_NOMOVE | SWP_NOOWNERZORDER | SWP_NOSIZE);
+        RedrawWindow(m_window, nullptr, nullptr, RDW_INVALIDATE | RDW_UPDATENOW);
+    }
+
+    void OnNcLButtonDown(HWND hwnd, BOOL doubleClick, int hitTest, int x, int y)
+    {
+        POINT point{ x, y };
+        ScreenToClient(hwnd, &point);
+        OnLButtonDown(hwnd, doubleClick, point.x, point.y, 0);
+    }
+
+    virtual void OnMouseMove(HWND hwnd, int x, int y, UINT keyFlags)
+    {
+    }
+
+    virtual void OnMouseLeave(HWND hwnd)
+    {
+    }
+
     virtual void OnPaint(HWND hwnd) = 0;
 
     BOOL OnEraseBackground(HWND hwnd, HDC hdc)
@@ -318,9 +395,14 @@ protected:
     std::vector<HWND> m_zoneWindows;
     HWND m_zoneCurrentWindow;
     Window m_window;
+    std::function<void(HWND)> m_removeWindowFromZoneCallback;
 
 public:
     void Show(bool show) override {}
+
+    Rect GetZoneRect() const override { return m_zone; }
+
+    UINT GetDpi() const override { return m_dpi; }
 };
 
 class SlimZoneTitleBar : public VisibleZoneTitleBar
@@ -361,7 +443,7 @@ protected:
 
         if (i >= 0 && i < m_zoneWindows.size())
         {
-            FancyZonesWindowUtils::SwitchToWindow(m_zoneWindows[i]);
+            SelectZoneWindow(m_zoneWindows[i]);
         }
     }
 
@@ -451,8 +533,13 @@ public:
 class ThickZoneTitleBar : public VisibleZoneTitleBar
 {
 protected:
-    static constexpr int c_style = WS_OVERLAPPED | WS_CAPTION | WS_THICKFRAME;
+    static constexpr int c_style = WS_OVERLAPPED | WS_CAPTION | WS_THICKFRAME | WS_CLIPCHILDREN;
     static constexpr int c_exStyle = WS_EX_NOREDIRECTIONBITMAP;
+
+    virtual float GetTabWidth() const
+    {
+        return m_height * GetWidthFactor();
+    }
 
     float GetWidthFactor() const
     {
@@ -471,14 +558,19 @@ protected:
     }
 
 public:
-    ThickZoneTitleBar(HINSTANCE hinstance, Rect zone, UINT dpi, bool isAboveZone) noexcept :
-        VisibleZoneTitleBar(isAboveZone, zone, dpi),
+    ThickZoneTitleBar(HINSTANCE hinstance, Rect zone, UINT dpi, bool isAboveZone, std::function<void(HWND)> removeWindowFromZoneCallback = {}, int customHeight = 0) noexcept :
+        VisibleZoneTitleBar(isAboveZone, zone, dpi, std::move(removeWindowFromZoneCallback)),
         m_hiddenWindow(hinstance)
     {
         RECT rect{};
         AdjustWindowRectExForDpi(&rect, c_style, FALSE, c_exStyle, m_dpi);
 
         auto height = -rect.top;
+        if (customHeight > 0)
+        {
+            height = MulDiv(customHeight, m_dpi, 96);
+        }
+
         m_height = height > zone.height() ? 0 : height;
 
         Init(hinstance, zone, c_style, c_exStyle);
@@ -521,11 +613,17 @@ protected:
             return;
         }
 
-        auto i = int((x - len) / (len * GetWidthFactor()));
+        const auto tabWidth = GetTabWidth();
+        if (tabWidth <= 0)
+        {
+            return;
+        }
+
+        auto i = int((x - len) / tabWidth);
 
         if (i >= 0 && i < m_zoneWindows.size())
         {
-            FancyZonesWindowUtils::SwitchToWindow(m_zoneWindows[i]);
+            SelectZoneWindow(m_zoneWindows[i]);
         }
     }
 
@@ -538,12 +636,57 @@ protected:
 class TabsZoneTitleBar : public ThickZoneTitleBar
 {
 public:
-    TabsZoneTitleBar(HINSTANCE hinstance, Rect zone, UINT dpi, bool isAboveZone) noexcept :
-        ThickZoneTitleBar(hinstance, zone, dpi, isAboveZone)
+    TabsZoneTitleBar(HINSTANCE hinstance, Rect zone, UINT dpi, bool isAboveZone, std::function<void(HWND)> removeWindowFromZoneCallback = {}) noexcept :
+        ThickZoneTitleBar(hinstance, zone, dpi, isAboveZone, std::move(removeWindowFromZoneCallback), FancyZonesSettings::settings().tabBarHeight)
     {
+        ShowWindow(m_window, SW_HIDE);
+    }
+
+    Rect GetInlineFrame() const override
+    {
+        return m_zoneWindows.size() < 2 ? m_zone : ThickZoneTitleBar::GetInlineFrame();
     }
 
 protected:
+    void UpdateZoneWindows(std::vector<HWND> zoneWindows) override
+    {
+        FinishRename(false);
+        m_zoneWindows = std::move(zoneWindows);
+        std::erase_if(tabTitleOverrides, [](const auto& entry) { return !IsWindow(entry.first); });
+        if (m_hoveredTabIndex >= static_cast<int>(m_zoneWindows.size()))
+        {
+            m_hoveredTabIndex = -1;
+        }
+
+        if (m_zoneWindows.size() < 2)
+        {
+            m_zoneCurrentWindow = NULL;
+            m_hoveredTabIndex = -1;
+            m_trackingMouseLeave = false;
+            ShowWindow(m_window, SW_HIDE);
+            return;
+        }
+
+        ShowWindow(m_window, SW_SHOWNOACTIVATE);
+        ReadjustPos();
+    }
+
+    float GetTabWidth() const override
+    {
+        if (m_zoneWindows.size() < 2)
+        {
+            return 0;
+        }
+
+        const auto availableWidth = (std::max)(0, m_zone.width() - m_height);
+        if (FancyZonesSettings::settings().tabBarFillZoneWidth)
+        {
+            return float(availableWidth) / m_zoneWindows.size();
+        }
+
+        return float(MulDiv(FancyZonesSettings::settings().tabBarTabWidth, m_dpi, 96));
+    }
+
     void OnPaint(HWND hwnd) override
     {
         constexpr DWORD DWMWA_USE_IMMERSIVE_DARK_MODE = 20;
@@ -555,6 +698,17 @@ protected:
         }
 
         ZoneTitleBarColors colors(isDarkMode);
+        const auto tabFocusColor = ParseHexColor(FancyZonesSettings::settings().tabBarFocusColor);
+        const auto tabUnfocusedColor = ParseHexColor(FancyZonesSettings::settings().tabBarUnfocusedColor);
+        const auto tabFocusedTextColor = ParseHexColor(FancyZonesSettings::settings().tabBarFocusedTextColor);
+        const auto tabUnfocusedTextColor = ParseHexColor(FancyZonesSettings::settings().tabBarUnfocusedTextColor);
+        const auto closeButtonColor = ParseHexColor(FancyZonesSettings::settings().tabBarCloseButtonColor);
+        const auto closeButtonBackColor = ParseHexColor(FancyZonesSettings::settings().tabBarCloseButtonBackgroundColor);
+        const auto closeButtonShape = FancyZonesSettings::settings().tabBarCloseButtonBackgroundShape;
+        const auto iconHorizontalSpacing = static_cast<float>(FancyZonesSettings::settings().tabBarIconHorizontalSpacing);
+        const auto iconVerticalSpacing = static_cast<float>(FancyZonesSettings::settings().tabBarIconVerticalSpacing);
+        const auto iconLeftSpacing = float(MulDiv(FancyZonesSettings::settings().tabBarIconLeftSpacing, m_dpi, 96));
+        const auto tabCornerRadius = float(MulDiv(FancyZonesSettings::settings().tabBarCornerRadius, m_dpi, 96));
 
         PAINTSTRUCT paint;
         BeginPaint(m_window, &paint);
@@ -573,47 +727,99 @@ protected:
             m_drawing.BeginDraw();
 
             {
-                auto widthFactor = GetWidthFactor();
+                const auto tabWidth = GetTabWidth();
                 auto textFormat = m_drawing.CreateTextFormat(
                     metrics.lfCaptionFont.lfFaceName,
-                    float(-metrics.lfCaptionFont.lfHeight),
+                    float(MulDiv(FancyZonesSettings::settings().tabBarTextSize, m_dpi, 96)),
                     (DWRITE_FONT_WEIGHT)metrics.lfCaptionFont.lfWeight);
 
                 for (auto i = 0; i < m_zoneWindows.size(); ++i)
                 {
-                    auto xOffset = m_height * (1 + widthFactor * i);
+                    auto xOffset = m_height + tabWidth * i;
                     auto yOffset = 0;
 
-                    auto backMargin = (m_height - captionHeight) * .4f;
-                    auto backHeight = m_height - 2 * backMargin;
-                    auto backWidth = widthFactor * m_height - 2 * backMargin;
+                    // Only a horizontal gap separates adjacent tabs; tabs are flat on the
+                    // bottom and extend all the way down to the window's edge (no bottom margin),
+                    // with only the top-left/top-right corners rounded.
+                    auto horizontalMargin = (m_height - captionHeight) * .4f;
+                    auto backWidth = tabWidth - 2 * horizontalMargin;
                     auto backRect = D2D1::RectF(
-                        float(xOffset + backMargin),
-                        float(yOffset + backMargin),
-                        float(xOffset + backMargin + backWidth),
-                        float(yOffset + backMargin + backHeight));
-                    m_drawing.FillRoundedRectangle(backRect, m_zoneWindows[i] == zoneCurrentWindow ? colors.highlightFrameColor : colors.frameColor);
+                        float(xOffset + horizontalMargin),
+                        float(yOffset),
+                        float(xOffset + horizontalMargin + backWidth),
+                        float(m_height));
+                    const auto isSelectedTab = m_zoneWindows[i] == zoneCurrentWindow;
+                    m_drawing.FillTopRoundedRectangle(backRect, isSelectedTab ? tabFocusColor : tabUnfocusedColor, tabCornerRadius);
 
-                    auto iconMargin = (m_height - captionHeight) * .5f;
-                    auto iconRect = D2D1::Rect(
-                        xOffset + iconMargin,
-                        yOffset + iconMargin,
-                        xOffset + iconMargin + captionHeight,
-                        yOffset + iconMargin + captionHeight);
+                    const auto contentHeight = float(m_height);
+                    const auto iconSize = min(float(MulDiv(FancyZonesSettings::settings().tabBarIconSize, m_dpi, 96)), contentHeight);
+                    const auto iconLeft = float(xOffset + horizontalMargin) + iconLeftSpacing;
+                    const auto iconTop = ((float(m_height) - iconSize) / 2) + (iconVerticalSpacing / 2.f);
+                    auto iconRect = D2D1::RectF(
+                        iconLeft,
+                        iconTop,
+                        iconLeft + iconSize,
+                        iconTop + iconSize);
                     DrawWindowIcon(m_drawing, iconRect, m_zoneWindows[i]);
 
                     if (textFormat)
                     {
-                        auto textMargin = (m_height - captionHeight) * .5f;
-                        auto textRect = D2D1::Rect(
-                            float(xOffset + m_height),
-                            float(yOffset + textMargin),
-                            float(xOffset + widthFactor * m_height - textMargin),
-                            float(yOffset + iconMargin + captionHeight));
+                        const auto textLeft = iconLeft + iconSize + iconHorizontalSpacing;
+                        const auto textRight = float(xOffset + tabWidth - horizontalMargin);
+                        auto textRect = D2D1::RectF(
+                            textLeft,
+                            float(yOffset + (iconVerticalSpacing / 2.f)),
+                            max(textLeft, textRight),
+                            float(yOffset + m_height));
 
-                        text[0] = TEXT('\0');
-                        GetWindowText(m_zoneWindows[i], text, ARRAYSIZE(text));
-                        m_drawing.DrawTextTrim(text, textFormat.get(), textRect, m_zoneWindows[i] == zoneCurrentWindow ? colors.highlightTextColor : colors.textColor);
+                        const auto titleOverride = tabTitleOverrides.find(m_zoneWindows[i]);
+                        if (titleOverride != tabTitleOverrides.end())
+                        {
+                            m_drawing.DrawTextTrim(titleOverride->second.c_str(), textFormat.get(), textRect, isSelectedTab ? tabFocusedTextColor : tabUnfocusedTextColor);
+                        }
+                        else
+                        {
+                            text[0] = TEXT('\0');
+                            GetWindowText(m_zoneWindows[i], text, ARRAYSIZE(text));
+                            m_drawing.DrawTextTrim(text, textFormat.get(), textRect, isSelectedTab ? tabFocusedTextColor : tabUnfocusedTextColor);
+                        }
+                    }
+
+                    if (m_hoveredTabIndex == static_cast<int>(i))
+                    {
+                        const auto closeButtonRect = GetCloseButtonRect(static_cast<int>(i), tabWidth);
+                        if (closeButtonShape != TabBarCloseButtonShape::None)
+                        {
+                            if (closeButtonShape == TabBarCloseButtonShape::Circle)
+                            {
+                                const auto center = D2D1::Point2F((closeButtonRect.left + closeButtonRect.right) / 2.f, (closeButtonRect.top + closeButtonRect.bottom) / 2.f);
+                                const auto radiusX = (closeButtonRect.right - closeButtonRect.left) / 2.f;
+                                const auto radiusY = (closeButtonRect.bottom - closeButtonRect.top) / 2.f;
+                                m_drawing.FillEllipse(D2D1::Ellipse(center, radiusX, radiusY), closeButtonBackColor);
+                            }
+                            else
+                            {
+                                m_drawing.FillRoundedRectangle(closeButtonRect, closeButtonBackColor, 0.2f);
+                            }
+                        }
+
+                        const auto closeTextRect = D2D1::RectF(
+                            closeButtonRect.left,
+                            closeButtonRect.top - 1.0f,
+                            closeButtonRect.right,
+                            closeButtonRect.bottom);
+                        if (!m_closeTextFormat)
+                        {
+                            m_closeTextFormat = m_drawing.CreateTextFormat(
+                                metrics.lfCaptionFont.lfFaceName,
+                                float(MulDiv(FancyZonesSettings::settings().tabBarTextSize, m_dpi, 96)),
+                                DWRITE_FONT_WEIGHT_BOLD);
+                        }
+
+                        if (m_closeTextFormat)
+                        {
+                            m_drawing.DrawTextW(L"X", m_closeTextFormat.get(), closeTextRect, closeButtonColor);
+                        }
                     }
                 }
             }
@@ -623,6 +829,253 @@ protected:
 
         EndPaint(m_window, &paint);
     }
+
+    void OnLButtonDown(HWND hwnd, BOOL doubleClick, int x, int y, UINT keyFlags)
+    {
+        auto len = m_height;
+        if (len == 0 || x < len)
+        {
+            return;
+        }
+
+        const auto tabWidth = GetTabWidth();
+        if (tabWidth <= 0)
+        {
+            return;
+        }
+
+        const auto tabIndex = int((x - len) / tabWidth);
+        if (tabIndex < 0 || tabIndex >= static_cast<int>(m_zoneWindows.size()))
+        {
+            return;
+        }
+
+        if (HitTestCloseButton(tabIndex, x, y))
+        {
+            const auto windowToRemove = m_zoneWindows[tabIndex];
+            if (m_removeWindowFromZoneCallback)
+            {
+                m_removeWindowFromZoneCallback(windowToRemove);
+            }
+            return;
+        }
+
+        SelectZoneWindow(m_zoneWindows[tabIndex]);
+    }
+
+    void OnRButtonDown(HWND hwnd, BOOL doubleClick, int x, int y, UINT keyFlags) override
+    {
+        const auto tabIndex = HitTestTabIndex(x);
+        if (tabIndex < 0)
+        {
+            return;
+        }
+
+        BeginRename(tabIndex);
+    }
+
+    void OnMouseMove(HWND hwnd, int x, int y, UINT keyFlags) override
+    {
+        if (!m_trackingMouseLeave)
+        {
+            TRACKMOUSEEVENT mouseTrack{ sizeof(TRACKMOUSEEVENT), TME_LEAVE, hwnd, 0 };
+            if (TrackMouseEvent(&mouseTrack))
+            {
+                m_trackingMouseLeave = true;
+            }
+        }
+
+        const auto hoveredTabIndex = HitTestTabIndex(x);
+        if (hoveredTabIndex != m_hoveredTabIndex)
+        {
+            m_hoveredTabIndex = hoveredTabIndex;
+            RedrawWindow(hwnd, nullptr, nullptr, RDW_INVALIDATE);
+        }
+    }
+
+    void OnMouseLeave(HWND hwnd) override
+    {
+        m_trackingMouseLeave = false;
+        if (m_hoveredTabIndex != -1)
+        {
+            m_hoveredTabIndex = -1;
+            RedrawWindow(hwnd, nullptr, nullptr, RDW_INVALIDATE);
+        }
+    }
+
+private:
+    static LRESULT CALLBACK RenameEditProc(HWND window, UINT message, WPARAM wParam, LPARAM lParam)
+    {
+        auto titleBar = reinterpret_cast<TabsZoneTitleBar*>(GetWindowLongPtr(window, GWLP_USERDATA));
+        if (!titleBar)
+        {
+            return DefWindowProc(window, message, wParam, lParam);
+        }
+
+        if (message == WM_KEYDOWN && wParam == VK_RETURN)
+        {
+            titleBar->FinishRename(true);
+            return 0;
+        }
+
+        if (message == WM_KEYDOWN && wParam == VK_ESCAPE)
+        {
+            titleBar->FinishRename(false);
+            return 0;
+        }
+
+        if (message == WM_KILLFOCUS)
+        {
+            titleBar->FinishRename(true);
+            return 0;
+        }
+
+        return CallWindowProc(titleBar->m_renameEditProc, window, message, wParam, lParam);
+    }
+
+    void BeginRename(int tabIndex)
+    {
+        FinishRename(true);
+
+        const auto tabWidth = GetTabWidth();
+        if (tabWidth <= 0 || tabIndex < 0 || tabIndex >= static_cast<int>(m_zoneWindows.size()))
+        {
+            return;
+        }
+
+        const auto targetWindow = m_zoneWindows[tabIndex];
+        std::wstring title;
+        if (const auto titleOverride = tabTitleOverrides.find(targetWindow); titleOverride != tabTitleOverrides.end())
+        {
+            title = titleOverride->second;
+        }
+        else
+        {
+            const auto titleLength = GetWindowTextLength(targetWindow);
+            std::vector<wchar_t> titleBuffer(static_cast<size_t>(titleLength) + 1);
+            GetWindowText(targetWindow, titleBuffer.data(), static_cast<int>(titleBuffer.size()));
+            title = titleBuffer.data();
+        }
+
+        const auto xOffset = m_height + tabWidth * tabIndex;
+        const auto horizontalMargin = (m_height - GetSystemMetricsForDpi(SM_CYCAPTION, m_dpi)) * .4f;
+        const auto editLeft = static_cast<int>(xOffset + horizontalMargin);
+        const auto editWidth = (std::max)(1, static_cast<int>(tabWidth - 2 * horizontalMargin));
+        m_renameEdit = CreateWindowExW(
+            WS_EX_CLIENTEDGE,
+            L"EDIT",
+            title.c_str(),
+            WS_CHILD | WS_VISIBLE | ES_AUTOHSCROLL,
+            editLeft,
+            0,
+            editWidth,
+            m_height,
+            m_window,
+            nullptr,
+            nullptr,
+            nullptr);
+        if (!m_renameEdit)
+        {
+            return;
+        }
+
+        m_renameTabIndex = tabIndex;
+        SetWindowLongPtr(m_renameEdit, GWLP_USERDATA, reinterpret_cast<LONG_PTR>(this));
+        m_renameEditProc = reinterpret_cast<WNDPROC>(SetWindowLongPtr(m_renameEdit, GWLP_WNDPROC, reinterpret_cast<LONG_PTR>(RenameEditProc)));
+        SendMessage(m_renameEdit, WM_SETFONT, reinterpret_cast<WPARAM>(GetStockObject(DEFAULT_GUI_FONT)), TRUE);
+        SendMessage(m_renameEdit, EM_SETSEL, 0, -1);
+        SetWindowPos(m_renameEdit, HWND_TOP, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_SHOWWINDOW);
+        RedrawWindow(m_renameEdit, nullptr, nullptr, RDW_INVALIDATE | RDW_ERASE | RDW_UPDATENOW);
+        SetFocus(m_renameEdit);
+    }
+
+    void FinishRename(bool commit)
+    {
+        if (!m_renameEdit)
+        {
+            return;
+        }
+
+        const auto edit = m_renameEdit;
+        const auto tabIndex = m_renameTabIndex;
+        if (commit && tabIndex >= 0 && tabIndex < static_cast<int>(m_zoneWindows.size()))
+        {
+            const auto titleLength = GetWindowTextLength(edit);
+            std::vector<wchar_t> titleBuffer(static_cast<size_t>(titleLength) + 1);
+            GetWindowText(edit, titleBuffer.data(), static_cast<int>(titleBuffer.size()));
+
+            const auto targetWindow = m_zoneWindows[tabIndex];
+            if (titleLength == 0)
+            {
+                tabTitleOverrides.erase(targetWindow);
+            }
+            else
+            {
+                tabTitleOverrides[targetWindow] = titleBuffer.data();
+            }
+        }
+
+        m_renameEdit = nullptr;
+        m_renameTabIndex = -1;
+        SetWindowLongPtr(edit, GWLP_WNDPROC, reinterpret_cast<LONG_PTR>(m_renameEditProc));
+        m_renameEditProc = nullptr;
+        DestroyWindow(edit);
+        RedrawWindow(m_window, nullptr, nullptr, RDW_INVALIDATE | RDW_UPDATENOW);
+    }
+
+    int HitTestTabIndex(int x) const
+    {
+        if (m_height == 0 || x < m_height)
+        {
+            return -1;
+        }
+
+        const auto tabWidth = GetTabWidth();
+        if (tabWidth <= 0)
+        {
+            return -1;
+        }
+
+        const auto tabIndex = int((x - m_height) / tabWidth);
+        if (tabIndex < 0 || tabIndex >= static_cast<int>(m_zoneWindows.size()))
+        {
+            return -1;
+        }
+
+        return tabIndex;
+    }
+
+    D2D1_RECT_F GetCloseButtonRect(int tabIndex, float tabWidth) const
+    {
+        const auto xOffset = m_height + tabWidth * tabIndex;
+        const auto closeSpacing = float(MulDiv(FancyZonesSettings::settings().tabBarCloseButtonSpacing, m_dpi, 96));
+        const auto closeSize = (std::max)(6.0f, float(m_height) * 0.4f);
+        const auto closeRight = float(xOffset + tabWidth) - closeSpacing;
+        const auto closeLeft = closeRight - closeSize;
+        const auto closeTop = (float(m_height) - closeSize) * 0.5f;
+
+        return D2D1::RectF(closeLeft, closeTop, closeRight, closeTop + closeSize);
+    }
+
+    bool HitTestCloseButton(int tabIndex, int x, int y) const
+    {
+        const auto tabWidth = GetTabWidth();
+        if (tabWidth <= 0 || tabIndex < 0 || tabIndex >= static_cast<int>(m_zoneWindows.size()))
+        {
+            return false;
+        }
+
+        const auto closeRect = GetCloseButtonRect(tabIndex, tabWidth);
+
+        return x >= closeRect.left && x <= closeRect.right && y >= closeRect.top && y <= closeRect.bottom;
+    }
+
+    int m_hoveredTabIndex = -1;
+    bool m_trackingMouseLeave = false;
+    HWND m_renameEdit = nullptr;
+    int m_renameTabIndex = -1;
+    WNDPROC m_renameEditProc = nullptr;
+    winrt::com_ptr<IDWriteTextFormat> m_closeTextFormat;
 };
 
 class LabelsZoneTitleBar : public ThickZoneTitleBar
@@ -745,6 +1198,10 @@ public:
     {
         return m_zone;
     }
+
+    Rect GetZoneRect() const override { return m_zone; }
+
+    UINT GetDpi() const override { return m_dpi; }
 
 protected:
     bool OnCreate(HWND hwnd, LPCREATESTRUCT createStruct) override
@@ -1007,12 +1464,27 @@ protected:
 class AutoHideZoneTitleBar : public IZoneTitleBar
 {
 public:
-    AutoHideZoneTitleBar(HINSTANCE hinstance, Rect zone, UINT dpi, ZoneTitleBarStyle style) :
+    AutoHideZoneTitleBar(HINSTANCE hinstance, Rect zone, UINT dpi, ZoneTitleBarStyle style, std::function<void(HWND)> removeWindowFromZoneCallback) :
         m_hinstance(hinstance),
         m_zone(zone),
         m_dpi(dpi),
-        m_style(style)
+        m_style(style),
+        m_removeWindowFromZoneCallback(std::move(removeWindowFromZoneCallback))
     {
+        m_timerId = SetTimer(nullptr, 0, 100, TimerProc);
+        if (m_timerId)
+        {
+            s_timers.emplace(m_timerId, this);
+        }
+    }
+
+    ~AutoHideZoneTitleBar()
+    {
+        if (m_timerId)
+        {
+            s_timers.erase(m_timerId);
+            KillTimer(nullptr, m_timerId);
+        }
     }
 
     virtual void Show(bool show) override
@@ -1032,7 +1504,7 @@ public:
                     break;
 
                 case ZoneTitleBarStyle::Tabs:
-                    m_zoneTitleBar = std::make_unique<TabsZoneTitleBar>(m_hinstance, m_zone, m_dpi, true);
+                    m_zoneTitleBar = std::make_unique<TabsZoneTitleBar>(m_hinstance, m_zone, m_dpi, true, m_removeWindowFromZoneCallback);
                     break;
 
                 case ZoneTitleBarStyle::Labels:
@@ -1070,6 +1542,8 @@ public:
         {
             m_zoneTitleBar->UpdateZoneWindows(zoneWindows);
         }
+
+        UpdateVisibility();
     }
 
     virtual void ReadjustPos() override
@@ -1085,22 +1559,58 @@ public:
         return m_zone;
     }
 
+    Rect GetZoneRect() const override { return m_zone; }
+
+    UINT GetDpi() const override { return m_dpi; }
+
 protected:
+    static void CALLBACK TimerProc(HWND, UINT, UINT_PTR timerId, DWORD)
+    {
+        const auto timer = s_timers.find(timerId);
+        if (timer != s_timers.end())
+        {
+            timer->second->UpdateVisibility();
+        }
+    }
+
+    void UpdateVisibility()
+    {
+        POINT cursor{};
+        if (!GetCursorPos(&cursor))
+        {
+            return;
+        }
+
+        MONITORINFO monitorInfo{ .cbSize = sizeof(MONITORINFO) };
+        const auto monitor = MonitorFromPoint(cursor, MONITOR_DEFAULTTONEAREST);
+        const bool show = monitor && GetMonitorInfoW(monitor, &monitorInfo) && cursor.y < monitorInfo.rcMonitor.top + 5;
+        if (show != m_isVisible)
+        {
+            m_isVisible = show;
+            Show(show);
+        }
+    }
+
     HINSTANCE m_hinstance;
     Rect m_zone;
     UINT m_dpi;
     ZoneTitleBarStyle m_style;
     std::vector<HWND> m_zoneWindows;
+    std::function<void(HWND)> m_removeWindowFromZoneCallback;
 
     std::unique_ptr<IZoneTitleBar> m_zoneTitleBar;
+    UINT_PTR m_timerId = 0;
+    bool m_isVisible = false;
+
+    inline static std::unordered_map<UINT_PTR, AutoHideZoneTitleBar*> s_timers;
 };
 
-std::unique_ptr<IZoneTitleBar> MakeZoneTitleBar(ZoneTitleBarStyle style, HINSTANCE hinstance, Rect zone, UINT dpi)
+std::unique_ptr<IZoneTitleBar> MakeZoneTitleBar(ZoneTitleBarStyle style, HINSTANCE hinstance, Rect zone, UINT dpi, std::function<void(HWND)> removeWindowFromZoneCallback)
 {
     bool isAutoHide = ((int)style & (int)ZoneTitleBarStyle::AutoHide) && style != ZoneTitleBarStyle::AutoHide;
     if (isAutoHide)
     {
-        return std::make_unique<AutoHideZoneTitleBar>(hinstance, zone, dpi, (ZoneTitleBarStyle)((int)style & ~(int)ZoneTitleBarStyle::AutoHide));
+        return std::make_unique<AutoHideZoneTitleBar>(hinstance, zone, dpi, (ZoneTitleBarStyle)((int)style & ~(int)ZoneTitleBarStyle::AutoHide), std::move(removeWindowFromZoneCallback));
     }
 
     switch (style)
@@ -1112,7 +1622,7 @@ std::unique_ptr<IZoneTitleBar> MakeZoneTitleBar(ZoneTitleBarStyle style, HINSTAN
         return std::make_unique<IconsZoneTitleBar>(hinstance, zone, dpi, false);
 
     case ZoneTitleBarStyle::Tabs:
-        return std::make_unique<TabsZoneTitleBar>(hinstance, zone, dpi, false);
+        return std::make_unique<TabsZoneTitleBar>(hinstance, zone, dpi, false, std::move(removeWindowFromZoneCallback));
 
     case ZoneTitleBarStyle::Labels:
         return std::make_unique<LabelsZoneTitleBar>(hinstance, zone, dpi, false);

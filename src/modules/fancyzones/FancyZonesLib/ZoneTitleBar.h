@@ -1,4 +1,5 @@
 #pragma once
+#include <functional>
 #include "util.h"
 #include "Window.h"
 #include "Settings.h"
@@ -11,7 +12,14 @@ public:
     virtual void Show(bool show) = 0;
     virtual void UpdateZoneWindows(std::vector<HWND> zoneWindows) = 0;
     virtual void ReadjustPos() = 0;
+    virtual FancyZonesUtils::Rect GetZoneRect() const = 0;
+    virtual UINT GetDpi() const = 0;
     virtual FancyZonesUtils::Rect GetInlineFrame() const = 0;
 };
 
-std::unique_ptr<IZoneTitleBar> MakeZoneTitleBar(ZoneTitleBarStyle style, HINSTANCE hinstance, FancyZonesUtils::Rect zone, UINT dpi);
+std::unique_ptr<IZoneTitleBar> MakeZoneTitleBar(
+    ZoneTitleBarStyle style,
+    HINSTANCE hinstance,
+    FancyZonesUtils::Rect zone,
+    UINT dpi,
+    std::function<void(HWND)> removeWindowFromZoneCallback = {});

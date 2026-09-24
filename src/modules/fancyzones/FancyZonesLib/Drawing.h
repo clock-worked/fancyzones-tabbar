@@ -27,6 +27,7 @@ public:
 
     void FillRectangle(const D2D1_RECT_F& rect, D2D1_COLOR_F color);
     void FillRoundedRectangle(const D2D1_RECT_F& rect, D2D1_COLOR_F color, float radiusFactor = .1f);
+    void FillTopRoundedRectangle(const D2D1_RECT_F& rect, D2D1_COLOR_F color, float radius);
     void FillEllipse(const D2D1_ELLIPSE& ellipse, D2D1_COLOR_F color);
     void FillGeometry(ID2D1PathGeometry* geometry, D2D1_COLOR_F color, float strokeWidth = 1.f);
     void DrawRectangle(const D2D1_RECT_F& rect, D2D1_COLOR_F color, float strokeWidth = 1.f);

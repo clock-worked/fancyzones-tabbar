@@ -39,6 +39,14 @@ enum struct ZoneTitleBarStyle : int
     EnumElements = 14, // number of elements in the enum, not counting this
 };
 
+enum struct TabBarCloseButtonShape : int
+{
+    None = 0,
+    Circle = 1,
+    Square = 2,
+    EnumElements = 3, // number of elements in the enum, not counting this
+};
+
 // in reality, this file needs to be kept in sync currently with src/settings-ui/Settings.UI.Library/FZConfigProperties.cs
 struct Settings
 {
@@ -72,6 +80,23 @@ struct Settings
     int zoneHighlightOpacity = 50;
     OverlappingZonesAlgorithm overlappingZonesAlgorithm = OverlappingZonesAlgorithm::Smallest;
     ZoneTitleBarStyle zoneTitleBarStyle = ZoneTitleBarStyle::Labels;
+    bool tabBarFillZoneWidth = true;
+    int tabBarTabWidth = 200;
+    int tabBarTextSize = 14;
+    int tabBarIconSize = 16;
+    std::wstring tabBarFocusColor = L"#0078D7";
+    int tabBarIconHorizontalSpacing = 8;
+    int tabBarIconVerticalSpacing = 4;
+    int tabBarHeight = 0; // 0 = automatic (system caption height)
+    int tabBarCornerRadius = 8;
+    std::wstring tabBarUnfocusedColor = L"#E6E6E6";
+    std::wstring tabBarFocusedTextColor = L"#FFFFFF";
+    std::wstring tabBarUnfocusedTextColor = L"#000000";
+    int tabBarIconLeftSpacing = 8;
+    int tabBarCloseButtonSpacing = 8;
+    std::wstring tabBarCloseButtonColor = L"#000000";
+    std::wstring tabBarCloseButtonBackgroundColor = L"#000000";
+    TabBarCloseButtonShape tabBarCloseButtonBackgroundShape = TabBarCloseButtonShape::Circle;
     PowerToysSettings::HotkeyObject editorHotkey = PowerToysSettings::HotkeyObject::from_settings(true, false, false, true, VK_OEM_3);
     bool windowSwitching = true;
     PowerToysSettings::HotkeyObject nextTabHotkey = PowerToysSettings::HotkeyObject::from_settings(true, false, false, false, VK_NEXT);

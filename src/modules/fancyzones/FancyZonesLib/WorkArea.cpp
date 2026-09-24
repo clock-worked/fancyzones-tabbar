@@ -30,6 +30,12 @@ using namespace FancyZonesUtils;
 
 namespace
 {
+    constexpr bool IsTabsTitleBarStyle(ZoneTitleBarStyle style)
+    {
+        const auto styleValue = static_cast<int>(style);
+        return (styleValue & ~static_cast<int>(ZoneTitleBarStyle::AutoHide)) == static_cast<int>(ZoneTitleBarStyle::Tabs);
+    }
+
     // The reason for using this class is the need to call ShowWindow(window, SW_SHOWNORMAL); on each
     // newly created window for it to be displayed properly. The call sometimes has side effects when
     // a fullscreen app is running, and happens when the resolution change event is triggered
@@ -142,16 +148,34 @@ bool WorkArea::Snap(HWND window, const ZoneIndexSet& zones, bool updatePosition)
     m_layoutWindows.Assign(window, zones);
     AppZoneHistory::instance().SetAppLastZones(window, m_uniqueId, m_layout->Id(), zones);
 
+    // Create the title bar before sizing the windows so its inline frame can
+    // reserve space for the bar instead of covering the windows' client area.
+    UpdateZoneTitleBars();
+
     if (updatePosition)
     {
-        const auto rect = m_layout->GetCombinedZonesRect(zones);
-        const auto adjustedRect = FancyZonesWindowUtils::AdjustRectForSizeWindowToRect(window, rect, m_window);
         FancyZonesWindowUtils::SaveWindowSizeAndOrigin(window);
-        FancyZonesWindowUtils::SizeWindowToRect(window, adjustedRect);
+
+        const RECT rect = *GetZoneInlineFrame(zones).get();
+
+        // Resizing all windows in the group is needed when this snap creates
+        // a title bar: windows that were already in the zone must also move
+        // below it.
+        const auto& windows = m_layoutWindows.WindowsByIndexSets().at(zones);
+        for (const auto zoneWindow : windows)
+        {
+            const auto adjustedRect = FancyZonesWindowUtils::AdjustRectForSizeWindowToRect(zoneWindow, rect, m_window, /*rectAlreadyInScreenCoordinates*/ true);
+            FancyZonesWindowUtils::SizeWindowToRect(zoneWindow, adjustedRect);
+        }
+
+        const auto titleBar = m_zoneTitleBars.find(zones);
+        if (titleBar != m_zoneTitleBars.end())
+        {
+            titleBar->second->ReadjustPos();
+        }
     }
 
     const bool stamped = FancyZonesWindowProperties::StampZoneIndexProperty(window, zones);
-    UpdateZoneTitleBars();
     return stamped;
 }
 
@@ -161,11 +185,22 @@ bool WorkArea::Unsnap(HWND window)
     {
         return false;
     }
-    
+
+    const auto zones = m_layoutWindows.GetZoneIndexSetFromWindow(window);
     m_layoutWindows.Dismiss(window);
     AppZoneHistory::instance().RemoveAppLastZone(window, m_uniqueId, m_layout->Id());
     FancyZonesWindowProperties::RemoveZoneIndexProperty(window);
     UpdateZoneTitleBars();
+
+    const bool usesTabs = IsTabsTitleBarStyle(FancyZonesSettings::settings().zoneTitleBarStyle);
+    const auto windowsByIndexSet = m_layoutWindows.WindowsByIndexSets().find(zones);
+    if (usesTabs && windowsByIndexSet != m_layoutWindows.WindowsByIndexSets().end() && windowsByIndexSet->second.size() == 1)
+    {
+        const RECT rect = *GetZoneInlineFrame(zones).get();
+        const auto remainingWindow = windowsByIndexSet->second.front();
+        const auto adjustedRect = FancyZonesWindowUtils::AdjustRectForSizeWindowToRect(remainingWindow, rect, m_window, /*rectAlreadyInScreenCoordinates*/ true);
+        FancyZonesWindowUtils::SizeWindowToRect(remainingWindow, adjustedRect);
+    }
 
     return true;
 }
@@ -240,7 +275,15 @@ void WorkArea::UpdateZoneTitleBars()
     if (!m_layout)
     {
         m_zoneTitleBars.clear();
+        m_zoneTitleBarStyle.reset();
         return;
+    }
+
+    const auto style = FancyZonesSettings::settings().zoneTitleBarStyle;
+    if (m_zoneTitleBarStyle != style)
+    {
+        m_zoneTitleBars.clear();
+        m_zoneTitleBarStyle = style;
     }
 
     const auto& windowsByIndexSets = m_layoutWindows.WindowsByIndexSets();
@@ -265,15 +308,64 @@ void WorkArea::UpdateZoneTitleBars()
             continue;
         }
 
-        const RECT zoneRect = m_layout->GetCombinedZonesRect(indexSet);
-        const auto zoneRectFz = FancyZonesUtils::Rect(zoneRect);
-        const UINT dpi = GetDpiForWindow(windows.front());
+        if (IsTabsTitleBarStyle(style) && windows.size() == 1)
+        {
+            m_zoneTitleBars.erase(indexSet);
+            continue;
+        }
 
-        auto style = FancyZonesSettings::settings().zoneTitleBarStyle;
-        auto newTitleBar = MakeZoneTitleBar(style, m_hinstance, zoneRectFz, dpi);
-        newTitleBar->UpdateZoneWindows(windows);
-        m_zoneTitleBars[indexSet] = std::move(newTitleBar);
+        const RECT zoneRect = m_layout->GetCombinedZonesRect(indexSet);
+        // Zone rects from the layout are relative to this WorkArea's own overlay
+        // window (i.e. monitor work area), not the virtual screen. The title bar is
+        // a real top-level window, so it needs absolute screen coordinates - otherwise
+        // it renders at the wrong location on any monitor that isn't at the origin.
+        RECT zoneScreenRect = zoneRect;
+        MapWindowRect(m_window, nullptr, &zoneScreenRect);
+        const auto zoneRectFz = FancyZonesUtils::Rect(zoneScreenRect);
+        // Use the work area's own monitor-bound window to resolve DPI. The snapped
+        // window can still report the DPI of its previous monitor for a moment after
+        // being moved across monitors with different scaling/height, which caused the
+        // title bar to be sized incorrectly (or hidden) on multi-monitor setups.
+        const UINT dpi = GetDpiForWindow(m_window);
+
+        auto existingTitleBar = m_zoneTitleBars.find(indexSet);
+        if (existingTitleBar != m_zoneTitleBars.end() &&
+            existingTitleBar->second->GetZoneRect() == zoneRectFz &&
+            existingTitleBar->second->GetDpi() == dpi)
+        {
+            existingTitleBar->second->UpdateZoneWindows(windows);
+        }
+        else
+        {
+            auto newTitleBar = MakeZoneTitleBar(style, m_hinstance, zoneRectFz, dpi, [this](HWND windowToUnsnap)
+                {
+                    Unsnap(windowToUnsnap);
+                });
+            newTitleBar->UpdateZoneWindows(windows);
+            m_zoneTitleBars[indexSet] = std::move(newTitleBar);
+        }
     }
+}
+
+FancyZonesUtils::Rect WorkArea::GetZoneInlineFrame(const ZoneIndexSet& zones) const
+{
+    const auto titleBar = m_zoneTitleBars.find(zones);
+    if (titleBar != m_zoneTitleBars.end())
+    {
+        // Title bar frames are already in absolute screen coordinates.
+        return titleBar->second->GetInlineFrame();
+    }
+
+    if (m_layout)
+    {
+        // No title bar: the layout's zone rect is relative to this WorkArea's own
+        // window, so convert it to absolute screen coordinates for consistency.
+        RECT rect = m_layout->GetCombinedZonesRect(zones);
+        MapWindowRect(m_window, nullptr, &rect);
+        return FancyZonesUtils::Rect(rect);
+    }
+
+    return {};
 }
 
 #pragma region private

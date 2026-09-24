@@ -292,6 +292,67 @@ void Drawing::FillRoundedRectangle(const D2D1_RECT_F& rect, D2D1_COLOR_F color, 
     }
 }
 
+void Drawing::FillTopRoundedRectangle(const D2D1_RECT_F& rect, D2D1_COLOR_F color, float radius)
+{
+    if (!*this)
+    {
+        return;
+    }
+
+    auto brush = CreateBrush(color);
+    if (!brush)
+    {
+        return;
+    }
+
+    const auto width = rect.right - rect.left;
+    const auto height = rect.bottom - rect.top;
+    if (width <= 0 || height <= 0)
+    {
+        return;
+    }
+
+    const auto r = min(radius, min(width, height) / 2.f);
+
+    winrt::com_ptr<ID2D1PathGeometry> geometry;
+    GetD2DFactory()->CreatePathGeometry(geometry.put());
+    if (!geometry)
+    {
+        return;
+    }
+
+    winrt::com_ptr<ID2D1GeometrySink> sink;
+    geometry->Open(sink.put());
+    if (!sink)
+    {
+        return;
+    }
+
+    if (r <= 0.f)
+    {
+        sink->BeginFigure(D2D1::Point2F(rect.left, rect.top), D2D1_FIGURE_BEGIN_FILLED);
+        sink->AddLine(D2D1::Point2F(rect.right, rect.top));
+        sink->AddLine(D2D1::Point2F(rect.right, rect.bottom));
+        sink->AddLine(D2D1::Point2F(rect.left, rect.bottom));
+    }
+    else
+    {
+        sink->BeginFigure(D2D1::Point2F(rect.left, rect.top + r), D2D1_FIGURE_BEGIN_FILLED);
+        sink->AddArc(D2D1::ArcSegment(D2D1::Point2F(rect.left + r, rect.top), D2D1::SizeF(r, r), 0.f, D2D1_SWEEP_DIRECTION_CLOCKWISE, D2D1_ARC_SIZE_SMALL));
+        sink->AddLine(D2D1::Point2F(rect.right - r, rect.top));
+        sink->AddArc(D2D1::ArcSegment(D2D1::Point2F(rect.right, rect.top + r), D2D1::SizeF(r, r), 0.f, D2D1_SWEEP_DIRECTION_CLOCKWISE, D2D1_ARC_SIZE_SMALL));
+        sink->AddLine(D2D1::Point2F(rect.right, rect.bottom));
+        sink->AddLine(D2D1::Point2F(rect.left, rect.bottom));
+    }
+
+    sink->EndFigure(D2D1_FIGURE_END_CLOSED);
+
+    if (SUCCEEDED(sink->Close()))
+    {
+        m_renderTarget->FillGeometry(geometry.get(), brush.get());
+    }
+}
+
 void Drawing::FillEllipse(const D2D1_ELLIPSE& ellipse, D2D1_COLOR_F color)
 {
     if (!*this)
