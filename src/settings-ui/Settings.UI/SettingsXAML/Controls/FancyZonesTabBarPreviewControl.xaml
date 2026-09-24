@@ -11,5 +11,6 @@
         Orientation="Horizontal"
         HorizontalAlignment="Center"
         VerticalAlignment="Center"
+        Margin="0,0,4,0"
         Spacing="8" />
 </UserControl>

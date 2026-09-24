@@ -191,7 +191,9 @@ namespace Microsoft.PowerToys.Settings.UI.Controls
             RootStackPanel.Children.Clear();
 
             // Account for the StackPanel's Spacing="8" (2 gaps between 3 tabs = 16px total)
-            var tabWidth = TabBarFillZoneWidth ? Math.Max(100d, (ActualWidth > 0 ? ActualWidth - 16 : 240d) / 3) : TabBarTabWidth;
+            // plus the StackPanel's right Margin (4px) so the rightmost tab's close button
+            // is not clipped at the container edge.
+            var tabWidth = TabBarFillZoneWidth ? Math.Max(100d, (ActualWidth > 0 ? ActualWidth - 20 : 240d) / 3) : TabBarTabWidth;
             var tabHeight = TabBarHeight > 0 ? TabBarHeight : Math.Max(28d, TabBarTextSize + 18d);
             var unfocusedBrush = new SolidColorBrush(ParseColor(TabBarUnfocusedColor, Colors.LightGray));
             var focusedTextBrush = new SolidColorBrush(ParseColor(TabBarFocusedTextColor, Colors.White));

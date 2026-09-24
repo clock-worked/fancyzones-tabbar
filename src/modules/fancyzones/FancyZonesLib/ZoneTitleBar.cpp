@@ -21,6 +21,10 @@
 #define HANDLE_WM_DWMCOLORIZATIONCOLORCHANGED(hwnd, wParam, lParam, fn) \
     ((fn)((hwnd), (DWORD)(wParam), (BOOL)(lParam)), 0L)
 
+/* void Cls_OnMouseLeave(HWND hwnd) */
+#define HANDLE_WM_MOUSELEAVE(hwnd, wParam, lParam, fn) \
+    ((fn)((hwnd)), 0L)
+
 
 using namespace FancyZonesUtils;
 
@@ -249,9 +253,7 @@ protected:
             HANDLE_MSG(window, WM_NCLBUTTONDOWN, OnNcLButtonDown);
             HANDLE_MSG(window, WM_MOUSEMOVE, OnMouseMove);
             HANDLE_MSG(window, WM_ERASEBKGND, OnEraseBackground);
-        case WM_MOUSELEAVE:
-            OnMouseLeave(window);
-            return 0;
+            HANDLE_MSG(window, WM_MOUSELEAVE, OnMouseLeave);
 
         default:
             return DefWindowProcW(window, message, wParam, lParam);
@@ -678,7 +680,10 @@ protected:
             return 0;
         }
 
-        const auto availableWidth = (std::max)(0, m_zone.width() - m_height);
+        // Account for the window frame border on the right side (WS_THICKFRAME)
+        // so the rightmost tab's close button is not clipped at the zone edge.
+        const auto frameBorder = GetSystemMetricsForDpi(SM_CXFRAME, m_dpi) + GetSystemMetricsForDpi(SM_CXPADDEDBORDER, m_dpi);
+        const auto availableWidth = (std::max)(0, m_zone.width() - m_height - frameBorder);
         if (FancyZonesSettings::settings().tabBarFillZoneWidth)
         {
             return float(availableWidth) / m_zoneWindows.size();
