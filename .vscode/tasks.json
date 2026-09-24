@@ -4,24 +4,33 @@
     "options": {
       "shell": {
         "executable": "cmd.exe",
-        "args": ["/d", "/c"]
+        "args": [
+          "/d",
+          "/c"
+        ]
       }
     }
   },
-
   "inputs": [
     {
       "id": "config",
       "type": "pickString",
       "description": "Configuration",
-      "options": ["Debug", "Release"],
+      "options": [
+        "Debug",
+        "Release"
+      ],
       "default": "Debug"
     },
     {
       "id": "platform",
       "type": "pickString",
       "description": "Platform (leave empty to auto-detect host platform)",
-      "options": ["", "X64", "ARM64"],
+      "options": [
+        "",
+        "X64",
+        "ARM64"
+      ],
       "default": "X64"
     },
     {
@@ -31,8 +40,26 @@
       "default": ""
     }
   ],
-
   "tasks": [
+    {
+      "label": "PT: Clean locks and build Debug x64",
+      "type": "shell",
+      "command": "powershell",
+      "args": [
+        "-NoProfile",
+        "-ExecutionPolicy",
+        "Bypass",
+        "-Command",
+        "$ErrorActionPreference = 'Stop'; Get-Process MSBuild, mspdbsrv, cl, link -ErrorAction SilentlyContinue | Stop-Process -Force; $path = Join-Path '${workspaceFolder}' 'src\\modules\\cmdpal\\ext\\SamplePagesExtension\\AppPackages\\SamplePagesExtension_1.0.0.0_x64_Debug_Test'; if (Test-Path -LiteralPath $path) { Get-ChildItem -LiteralPath $path -Force -Recurse | ForEach-Object { $_.Attributes = $_.Attributes -band (-bnot [IO.FileAttributes]::ReadOnly) }; (Get-Item -LiteralPath $path -Force).Attributes = (Get-Item -LiteralPath $path -Force).Attributes -band (-bnot [IO.FileAttributes]::ReadOnly); Remove-Item -LiteralPath $path -Force -Recurse }; & (Join-Path '${workspaceFolder}' 'tools\\build\\build.cmd') -Platform x64 -Configuration Debug; exit $LASTEXITCODE"
+      ],
+      "group": "build",
+      "presentation": {
+        "reveal": "always",
+        "panel": "dedicated",
+        "clear": true
+      },
+      "problemMatcher": "$msCompile"
+    },
     {
       "label": "PT: Build (quick)",
       "type": "shell",
@@ -41,7 +68,10 @@
         "-Path",
         "${fileDirname}"
       ],
-      "group": { "kind": "build", "isDefault": true },
+      "group": {
+        "kind": "build",
+        "isDefault": true
+      },
       "presentation": {
         "reveal": "always",
         "panel": "dedicated",
@@ -49,7 +79,6 @@
       },
       "problemMatcher": "$msCompile"
     },
-
     {
       "label": "PT: Build (with options)",
       "type": "shell",
@@ -70,7 +99,6 @@
       },
       "problemMatcher": "$msCompile"
     },
-
     {
       "label": "PT: Build Essentials (quick)",
       "type": "shell",
@@ -83,7 +111,6 @@
       },
       "problemMatcher": "$msCompile"
     },
-
     {
       "label": "PT: Build Essentials (with options)",
       "type": "shell",
