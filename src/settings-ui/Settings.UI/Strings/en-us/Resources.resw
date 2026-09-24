@@ -852,6 +852,86 @@ opera.exe</value>
   <data name="FancyZones_HotkeyPrevTabControl.Header" xml:space="preserve">
     <value>Previous window</value>
   </data>
+  <data name="FancyZones_ZoneTabBar.Header" xml:space="preserve">
+    <value>Zone title bar</value>
+  </data>
+  <data name="FancyZones_ZoneTabBarAutoHide.Content" xml:space="preserve">
+    <value>Auto-hide the tab bar until the cursor reaches the top 5 pixels of a screen</value>
+  </data>
+  <data name="FancyZones_TabBarFillZoneWidth.Content" xml:space="preserve">
+    <value>Fill zone width with tabs</value>
+  </data>
+  <data name="FancyZones_TabBarTabWidth.Header" xml:space="preserve">
+    <value>Fixed tab width (px)</value>
+  </data>
+  <data name="FancyZones_TabBarTextSize.Header" xml:space="preserve">
+    <value>Tab text size (px)</value>
+  </data>
+  <data name="FancyZones_TabBarIconSize.Header" xml:space="preserve">
+    <value>Tab icon size (px)</value>
+  </data>
+  <data name="FancyZones_TabBarColors.Header" xml:space="preserve">
+    <value>Tab colors</value>
+  </data>
+  <data name="FancyZones_TabBarFocusColor.Header" xml:space="preserve">
+    <value>Focused tab color</value>
+  </data>
+  <data name="FancyZones_TabBarIconHorizontalSpacing.Header" xml:space="preserve">
+    <value>Tab icon horizontal spacing (px)</value>
+  </data>
+  <data name="FancyZones_TabBarIconVerticalSpacing.Header" xml:space="preserve">
+    <value>Tab icon vertical spacing (px)</value>
+  </data>
+  <data name="FancyZones_TabBarHeight.Header" xml:space="preserve">
+    <value>Tab bar height (px, 0 = automatic)</value>
+  </data>
+  <data name="FancyZones_TabBarCornerRadius.Header" xml:space="preserve">
+    <value>Tab corner rounding (px)</value>
+  </data>
+  <data name="FancyZones_TabBarUnfocusedColor.Header" xml:space="preserve">
+    <value>Unfocused tab color</value>
+  </data>
+  <data name="FancyZones_TabBarFocusedTextColor.Header" xml:space="preserve">
+    <value>Focused tab text color</value>
+  </data>
+  <data name="FancyZones_TabBarUnfocusedTextColor.Header" xml:space="preserve">
+    <value>Unfocused tab text color</value>
+  </data>
+  <data name="FancyZones_TabBarIconLeftSpacing.Header" xml:space="preserve">
+    <value>Tab icon left spacing (px)</value>
+  </data>
+  <data name="FancyZones_TabBarCloseButtonSpacing.Header" xml:space="preserve">
+    <value>Close button spacing from right edge (px)</value>
+  </data>
+  <data name="FancyZones_TabBarCloseButtonColors.Header" xml:space="preserve">
+    <value>Close button colors</value>
+  </data>
+  <data name="FancyZones_TabBarCloseButtonColor.Header" xml:space="preserve">
+    <value>Close button color</value>
+  </data>
+  <data name="FancyZones_TabBarCloseButtonBackgroundColor.Header" xml:space="preserve">
+    <value>Close button background color</value>
+  </data>
+  <data name="FancyZones_TabBarCloseButtonBackgroundShape.Header" xml:space="preserve">
+    <value>Close button background shape</value>
+  </data>
+  <data name="FancyZones_TabBarCloseButtonBackgroundShapeNone.Content" xml:space="preserve"><value>None</value></data>
+  <data name="FancyZones_TabBarCloseButtonBackgroundShapeCircle.Content" xml:space="preserve"><value>Circle</value></data>
+  <data name="FancyZones_TabBarCloseButtonBackgroundShapeSquare.Content" xml:space="preserve"><value>Square</value></data>
+  <data name="FancyZones_ZoneTabBarNone.Content" xml:space="preserve"><value>None</value></data>
+  <data name="FancyZones_ZoneTabBarAutoHideOnly.Content" xml:space="preserve"><value>Auto-hide</value></data>
+  <data name="FancyZones_ZoneTabBarNumbers.Content" xml:space="preserve"><value>Numbers</value></data>
+  <data name="FancyZones_ZoneTabBarAutoHideNumbers.Content" xml:space="preserve"><value>Auto-hide numbers</value></data>
+  <data name="FancyZones_ZoneTabBarIcons.Content" xml:space="preserve"><value>Icons</value></data>
+  <data name="FancyZones_ZoneTabBarAutoHideIcons.Content" xml:space="preserve"><value>Auto-hide icons</value></data>
+  <data name="FancyZones_ZoneTabBarTabs.Content" xml:space="preserve"><value>Tabs</value></data>
+  <data name="FancyZones_ZoneTabBarAutoHideTabs.Content" xml:space="preserve"><value>Auto-hide tabs</value></data>
+  <data name="FancyZones_ZoneTabBarLabels.Content" xml:space="preserve"><value>Labels</value></data>
+  <data name="FancyZones_ZoneTabBarAutoHideLabels.Content" xml:space="preserve"><value>Auto-hide labels</value></data>
+  <data name="FancyZones_ZoneTabBarPager.Content" xml:space="preserve"><value>Pager</value></data>
+  <data name="FancyZones_ZoneTabBarAutoHidePager.Content" xml:space="preserve"><value>Auto-hide pager</value></data>
+  <data name="FancyZones_ZoneTabBarButtons.Content" xml:space="preserve"><value>Buttons</value></data>
+  <data name="FancyZones_ZoneTabBarAutoHideButtons.Content" xml:space="preserve"><value>Auto-hide buttons</value></data>
   <data name="FancyZones_LaunchEditorButtonControl.Header" xml:space="preserve">
     <value>Open layout editor</value>
     <comment>launches the FancyZones layout editor application</comment>
