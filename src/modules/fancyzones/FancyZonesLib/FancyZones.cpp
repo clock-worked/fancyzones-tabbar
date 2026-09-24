@@ -786,7 +786,8 @@ void FancyZones::OnKeyboardInput(WPARAM /*flags*/, HRAWINPUT hInput) noexcept
 
     switch (input.value().vkKey)
     {
-    case VK_SHIFT:
+    case VK_LSHIFT:
+    case VK_RSHIFT:
         {
             m_draggingState.SetShiftState(input.value().pressed);
         }
